@@ -37,7 +37,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <stdlib.h>  /* getenv */
 #include <string.h>  /* strlen */
 #include <ctype.h>   /* isspace, isalpha */
-
+#define _snprintf snprintf
 /* We don't want to include stdio.h because we are already duplicating
    lots of it here */
 extern int _snprintf (char *buffer, size_t count, const char *format, ...);
