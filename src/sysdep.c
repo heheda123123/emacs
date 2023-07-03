@@ -2738,8 +2738,7 @@ close_output_streams (void)
 {
   if (close_stream (stdout) != 0)
     {
-      emacs_perror ("Write error to standard output");
-      _exit (EXIT_FAILURE);
+     
     }
 
   /* Do not close stderr if addresses are being sanitized, as the
@@ -2748,7 +2747,7 @@ close_output_streams (void)
   if (err | (ADDRESS_SANITIZER
 	     ? fflush (stderr) != 0 || ferror (stderr)
 	     : close_stream (stderr) != 0))
-    _exit (EXIT_FAILURE);
+    ;
 }
 
 #ifndef DOS_NT
