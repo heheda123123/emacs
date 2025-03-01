@@ -8,7 +8,7 @@
 @syncodeindex pg cp
 
 @copying
-Copyright @copyright{} 1995--2024 Free Software Foundation, Inc.
+Copyright @copyright{} 1995--2025 Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -874,7 +874,6 @@ Thwarting Email Spam
 * The problem of spam::         Some background, and some solutions
 * Anti-Spam Basics::            Simple steps to reduce the amount of spam.
 * SpamAssassin::                How to use external anti-spam tools.
-* Hashcash::                    Reduce spam by burning CPU time.
 
 Spam Package
 
@@ -892,7 +891,6 @@ Spam Back Ends
 * Blacklists and Whitelists::
 * BBDB Whitelists::
 * Gmane Spam Reporting::
-* Anti-spam Hashcash Payments::
 * Blackholes::
 * Regular Expressions Header Matching::
 * Bogofilter::
@@ -5837,7 +5835,7 @@ Mail a very wide reply to the author of the current article
 (@code{gnus-summary-very-wide-reply}).  A @dfn{very wide reply} is a
 reply that goes out to all people listed in the @code{To}, @code{From}
 (or @code{Reply-To}) and @code{Cc} headers in all the process/prefixed
-articles. This command uses the process/prefix convention.  If given a
+articles.  This command uses the process/prefix convention.  If given a
 prefix argument, the body of the current article will also be yanked.
 
 @item S V
@@ -7424,7 +7422,7 @@ meaningful.  Here's one example:
 @end lisp
 
 And another example:  the protonmail bridge adds fake message-ids to
-@code{References} in message headers, which can confuse threading. To
+@code{References} in message headers, which can confuse threading.  To
 remove these spurious ids
 
 @lisp
@@ -10558,7 +10556,7 @@ course, it'll make group entry somewhat slow.
 
 @vindex gnus-refer-thread-use-search
 If @code{gnus-refer-thread-use-search} is @code{nil} (the default)
-then thread-referral only looks for articles in the current group. If
+then thread-referral only looks for articles in the current group.  If
 this variable is @code{t} the server to which the current group
 belongs is searched (provided that searching is available for the
 server's backend).  If this variable is a list of servers, each server
@@ -11513,7 +11511,7 @@ even with @sc{xover} by registering the @code{Xref} lines of all
 articles you actually read, but if you kill the articles, or just mark
 them as read without reading them, Gnus will not get a chance to snoop
 the @code{Xref} lines out of these articles, and will be unable to use
-the cross reference mechanism.
+the cross-reference mechanism.
 
 @cindex LIST overview.fmt
 @cindex overview.fmt
@@ -12075,7 +12073,7 @@ article buffer.  There are many methods for doing that, but two of
 them are kind of default methods.
 
 If your Emacs copy has been built with libxml2 support, then Gnus uses
-Emacs' built-in, plain elisp Simple HTML Renderer @code{shr}
+Emacs's built-in, plain elisp Simple HTML Renderer @code{shr}
 @footnote{@code{shr} displays colors as declared in the @acronym{HTML}
 article but tries to adjust them in order to be readable.  If you
 prefer more contrast, @xref{FAQ 4-16}.} which is also used by Emacs'
@@ -14374,6 +14372,8 @@ where you would put a @samp{SOCKS} wrapper for instance.
 @vindex nntp-address
 The address of the @acronym{NNTP} server.
 
+@cindex nntps
+@cindex snews
 @item nntp-port-number
 @vindex nntp-port-number
 Port number to connect to the @acronym{NNTP} server.  The default is
@@ -14706,7 +14706,7 @@ Here's a complete example @code{nnimap} backend with a client-side
 
 If you're using Google's Gmail, you may want to see your Gmail labels
 when reading your mail.  Gnus can give you this information if you ask
-for @samp{X-GM-LABELS} in the variable @code{gnus-extra-headers}. For
+for @samp{X-GM-LABELS} in the variable @code{gnus-extra-headers}.  For
 example:
 
 @example
@@ -15387,7 +15387,7 @@ corresponding keywords.
 
 @item :mailbox
 The name of the mailbox to get mail from.  The default is @samp{INBOX}
-which normally is the mailbox which receives incoming mail. Instead of
+which normally is the mailbox which receives incoming mail.  Instead of
 a single mailbox, this can be a list of mailboxes to fetch mail from.
 
 @item :predicate
@@ -17202,7 +17202,7 @@ filename is unrelated to the article number in Gnus. @code{nnmaildir}
 also stores the equivalent of @code{nnml}'s overview files in one file
 per article, so it uses about twice as many inodes as @code{nnml}.
 (Use @code{df -i} to see how plentiful your inode supply is.)  If this
-slows you down or takes up very much space, a non-block-structured
+slows you down or takes up very much space, use a non-block-structured
 file system.
 
 Since maildirs don't require locking for delivery, the maildirs you use
@@ -18250,7 +18250,8 @@ inherited.
 This section describes a special mail back end called @code{nndiary},
 and its companion library @code{gnus-diary}.  It is ``special'' in the
 sense that it is not meant to be one of the standard alternatives for
-reading mail with Gnus.  See @ref{Choosing a Mail Back End} for that.
+reading mail with Gnus.  (@xref{Choosing a Mail Back End}, for
+description of the standard mail back ends.)
 Instead, it is used to treat @emph{some} of your mails in a special way,
 namely, as event reminders.
 
@@ -18609,7 +18610,7 @@ sending the diary message to them as well.
 @cindex Gnus agent
 @cindex Gnus unplugged
 
-In olden times (ca. February '88), people used to run their newsreaders
+In olden times (ca.@: February '88), people used to run their newsreaders
 on big machines with permanent connections to the net.  News transport
 was dealt with by news servers, and all the newsreaders had to do was to
 read news.  Believe it or not.
@@ -19842,7 +19843,8 @@ may ask:
 @table @dfn
 @item If I read an article while plugged, do they get entered into the Agent?
 
-@strong{No}.  If you want this behavior, add
+Yes, because of the default value of
+@code{gnus-agent-eagerly-store-articles}.  An alternative is to add
 @code{gnus-agent-fetch-selected-article} to
 @code{gnus-select-article-hook}.
 
@@ -20413,7 +20415,7 @@ Anyway, if you'd like to dig into it yourself, here's an example:
  (read-only nil)
  (orphan -10)
  (adapt t)
- (files "/hom/larsi/News/gnu.SCORE")
+ (files "/home/larsi/News/gnu.SCORE")
  (exclude-files "all.SCORE")
  (local (gnus-newsgroup-auto-expire t)
         (gnus-summary-make-false-root empty))
@@ -20601,7 +20603,7 @@ key will lead to creation of @file{ADAPT} files.)
 @cindex score file atoms
 @item score-fn
 The value of this entry should be one or more user-defined function
-names in parentheses. Each function will be called in order and the
+names in parentheses.  Each function will be called in order and the
 returned value is required to be an integer.
 
 @example
@@ -22354,7 +22356,7 @@ calling @code{nnmairix-search} with @samp{f:From}.
 @item G G o
 @kindex G G o @r{(Summary)}
 @findex nnmairix-goto-original-article
-(Only in @code{nnmairix} groups!) Tries determine the group this article
+(Only in @code{nnmairix} groups!)  Tries to determine the group this article
 originally came from and displays the article in this group, so that,
 e.g., replying to this article the correct posting styles/group
 parameters are applied (@code{nnmairix-goto-original-article}).  This
@@ -22377,6 +22379,7 @@ First of: you really need a patched mairix binary for using the marks
 propagation feature efficiently.  Otherwise, you would have to update
 the mairix database all the time.  You can get the patch at
 
+@c FIXME: This link is broken as of 2025-01-26.
 @uref{http://www.randomsample.de/mairix-maildir-patch.tar}
 
 You need the mairix v0.21 source code for this patch; everything else
@@ -23345,7 +23348,7 @@ windows resized.
 Lastly, it's possible to make Gnus window layouts ``atomic''
 (@pxref{Atomic Windows, , Atomic Windows, elisp, The GNU Emacs Lisp
 Reference Manual}) by setting @code{gnus-use-atomic-windows} to
-@code{t}.  This will ensure that pop-up buffers (e.g. help or
+@code{t}.  This will ensure that pop-up buffers (e.g., help or
 completion buffers), will appear below or to the side of the entire
 Gnus window layout and not, for example, squashed between the summary
 and article buffers.
@@ -24313,7 +24316,6 @@ This is annoying.  Here's what you can do about it.
 * The problem of spam::         Some background, and some solutions
 * Anti-Spam Basics::            Simple steps to reduce the amount of spam.
 * SpamAssassin::                How to use external anti-spam tools.
-* Hashcash::                    Reduce spam by burning CPU time.
 @end menu
 
 @node The problem of spam
@@ -24534,81 +24536,6 @@ spam.  And here is the nifty function:
   (gnus-summary-save-in-pipe "razor-report -f -d" t)
   (gnus-summary-mark-as-expirable 1))
 @end lisp
-
-@node Hashcash
-@subsection Hashcash
-@cindex hashcash
-
-One technique to fight spam is to require senders to do something
-costly and demonstrably unique for each message they send.  This has
-the obvious drawback that you cannot rely on everyone in the world
-using this technique, since it is not part of the Internet standards,
-but it may be useful in smaller communities.
-
-While the tools in the previous section work well in practice, they
-work only because the tools are constantly maintained and updated as
-new form of spam appears.  This means that a small percentage of spam
-will always get through.  It also means that somewhere, someone needs
-to read lots of spam to update these tools.  Hashcash avoids that, but
-instead prefers that everyone you contact through e-mail supports the
-scheme.  You can view the two approaches as pragmatic vs dogmatic.
-The approaches have their own advantages and disadvantages, but as
-often in the real world, a combination of them is stronger than either
-one of them separately.
-
-@cindex X-Hashcash
-The ``something costly'' is to burn CPU time, more specifically to
-compute a hash collision up to a certain number of bits.  The
-resulting hashcash cookie is inserted in a @samp{X-Hashcash:} header.
-For more details, and for the external application @code{hashcash} you
-need to install to use this feature, see
-@uref{http://www.hashcash.org/}.
-
-If you wish to generate hashcash for each message you send, you can
-customize @code{message-generate-hashcash} (@pxref{Mail Headers, ,Mail
-Headers,message, The Message Manual}), as in:
-
-@lisp
-(setq message-generate-hashcash t)
-@end lisp
-
-You will need to set up some additional variables as well:
-
-@table @code
-
-@item hashcash-default-payment
-@vindex hashcash-default-payment
-This variable indicates the default number of bits the hash collision
-should consist of.  By default this is 20.  Suggested useful values
-include 17 to 29.
-
-@item hashcash-payment-alist
-@vindex hashcash-payment-alist
-Some receivers may require you to spend burn more CPU time than the
-default.  This variable contains a list of @samp{(@var{addr}
-@var{amount})} cells, where @var{addr} is the receiver (email address
-or newsgroup) and @var{amount} is the number of bits in the collision
-that is needed.  It can also contain @samp{(@var{addr} @var{string}
-@var{amount})} cells, where the @var{string} is the string to use
-(normally the email address or newsgroup name is used).
-
-@item hashcash-program
-@vindex hashcash-program
-Where the @code{hashcash} binary is installed.  This variable should
-be automatically set by @code{executable-find}, but if it's @code{nil}
-(usually because the @code{hashcash} binary is not in your path)
-you'll get a warning when you check hashcash payments and an error
-when you generate hashcash payments.
-
-@end table
-
-Gnus can verify hashcash cookies, although this can also be done by
-hand customized mail filtering scripts.  To verify a hashcash cookie
-in a message, use the @code{mail-check-payment} function in the
-@code{hashcash.el} library.  You can also use the @code{spam.el}
-package with the @code{spam-use-hashcash} back end to validate hashcash
-cookies in incoming mail and filter mail accordingly (@pxref{Anti-spam
-Hashcash Payments}).
 
 @node Spam Package
 @section Spam Package
@@ -24855,7 +24782,7 @@ particular spam group.  You don't have to throw all mail into all the
 spam tests.  Another reason why this is nice is that messages to
 mailing lists you have rules for don't have to have resource-intensive
 blackhole checks performed on them.  You could also specify different
-spam checks for your nnmail split vs. your nnimap split.  Go crazy.
+spam checks for your nnmail split vs.@: your nnimap split.  Go crazy.
 
 You should set the @code{spam-use-*} variables for whatever spam back
 ends you intend to use.  The reason is that when loading
@@ -25240,7 +25167,6 @@ Processors}).
 * Blacklists and Whitelists::
 * BBDB Whitelists::
 * Gmane Spam Reporting::
-* Anti-spam Hashcash Payments::
 * Blackholes::
 * Regular Expressions Header Matching::
 * Bogofilter::
@@ -25433,23 +25359,6 @@ numbers don't correspond to the Gmane article numbers.  When
 Mail address exposed in the User-Agent spam reports to Gmane.  It allows
 the Gmane administrators to contact you in case of misreports.  The
 default is @code{user-mail-address}.
-
-@end defvar
-
-@node Anti-spam Hashcash Payments
-@subsubsection Anti-spam Hashcash Payments
-@cindex spam filtering
-@cindex hashcash, spam filtering
-@cindex spam
-
-@defvar spam-use-hashcash
-
-Similar to @code{spam-use-whitelist} (@pxref{Blacklists and
-Whitelists}), but uses hashcash tokens for whitelisting messages
-instead of the sender address.  Messages without a hashcash payment
-token will be sent to the next spam-split rule.  This is an explicit
-filter, meaning that unless a hashcash token is found, the messages
-are not assumed to be spam or ham.
 
 @end defvar
 
@@ -26003,8 +25912,7 @@ such a back end.
 
 This function will install a back end that can only check incoming mail
 for spam contents.  It can't register or unregister messages.
-@code{spam-use-blackholes} and @code{spam-use-hashcash} are such
-back ends.
+@code{spam-use-blackholes} is such a back end.
 
 @item
 @code{spam-install-statistical-checkonly-backend}
@@ -26046,7 +25954,7 @@ never install such a back end.
 @cindex spam filtering, naive Bayesian
 
 Paul Graham has written an excellent essay about spam filtering using
-statistics: @uref{http://www.paulgraham.com/spam.html,A Plan for
+statistics: @uref{https://www.paulgraham.com/spam.html,A Plan for
 Spam}.  In it he describes the inherent deficiency of rule-based
 filtering as used by SpamAssassin, for example: Somebody has to write
 the rules, and everybody else has to install these rules.  You are
@@ -26640,13 +26548,13 @@ data across multiple machines.
 
 Very often, you want all your marks (what articles you've read, which
 ones were important, and so on) to be synchronized between several
-machines. With IMAP, that's built into the protocol, so you can read
+machines.  With IMAP, that's built into the protocol, so you can read
 nnimap groups from many machines and they are automatically
-synchronized. But NNTP, nnrss, and many other backends do not store
+synchronized.  But NNTP, nnrss, and many other backends do not store
 marks, so you have to do it locally.
 
 The Gnus Cloud package stores the marks, plus any files you choose, on
-an IMAP server in a special folder. It's like a
+an IMAP server in a special folder.  It's like a
 DropTorrentSyncBoxOakTree(TM).@footnote{The name ``Gnus Cloud''
 parodizes but otherwise has little to do with ``cloud computing'', a
 @url{https://www.gnu.org/philosophy/words-to-avoid.html#CloudComputing,
@@ -26660,17 +26568,17 @@ misleading term normally best avoided}.}
 @node Gnus Cloud Setup
 @subsection Gnus Cloud Setup
 
-Setting up the Gnus Cloud takes less than a minute. From the Group
+Setting up the Gnus Cloud takes less than a minute.  From the Group
 buffer:
 
-Press @kbd{^} to go to the Server buffer. Here you'll see all the
+Press @kbd{^} to go to the Server buffer.  Here you'll see all the
 servers that Gnus knows. @xref{Server Buffer}.
 
 Then press @kbd{i} to mark any servers as cloud-synchronized (their marks are synchronized).
 
 Then press @kbd{I} to mark a single server as the cloud host (it must
 be an IMAP server, and will host a special IMAP folder with all the
-synchronization data). This will set the variable
+synchronization data).  This will set the variable
 @code{gnus-cloud-method} (using the Customize facilities), then ask
 you to optionally upload your first CloudSynchronizationDataPack(TM).
 
@@ -26690,37 +26598,37 @@ Download the latest Gnus Cloud data.
 @item ~ ~
 @findex gnus-cloud-upload-all-data
 @cindex cloud, download
-Upload the local Gnus Cloud data. Creates a new
+Upload the local Gnus Cloud data.  Creates a new
 CloudSynchronizationDataPack(TM).
 
 @end table
 
-But wait, there's more. Of course there's more. So much more. You can
+But wait, there's more.  Of course there's more.  So much more.  You can
 customize all of the following.
 
 @defvar gnus-cloud-synced-files
 These are the files that will be part of every
-CloudSynchronizationDataPack(TM). They are included in every upload,
-so don't synchronize a lot of large files. Files under 100Kb are best.
+CloudSynchronizationDataPack(TM).  They are included in every upload,
+so don't synchronize a lot of large files.  Files under 100Kb are best.
 @end defvar
 
 @defvar gnus-cloud-storage-method
-This is a choice from several storage methods. It's highly recommended
-to use the EPG facilities. It will be automatic if have GnuPG
-installed and EPG loaded. Otherwise, you could use Base64+gzip,
+This is a choice from several storage methods.  It's highly recommended
+to use the EPG facilities.  It will be automatic if have GnuPG
+installed and EPG loaded.  Otherwise, you could use Base64+gzip,
 Base64, or no encoding.
 @end defvar
 
 @defvar gnus-cloud-interactive
 When this is set, and by default it is, the Gnus Cloud package will
-ask you for confirmation here and there. Leave it on until you're
+ask you for confirmation here and there.  Leave it on until you're
 comfortable with the package.
 @end defvar
 
 
 @defvar gnus-cloud-method
 The name of the IMAP server to store the
-CloudSynchronizationDataPack(TM)s. It's easiest to set this from the
+CloudSynchronizationDataPack(TM)s.  It's easiest to set this from the
 Server buffer (@pxref{Gnus Cloud Setup}).
 @end defvar
 
@@ -26976,7 +26884,7 @@ appropriate name, don't you think?)
 In any case, after spending all that energy on coming up with a new and
 spunky name, we decided that the name was @emph{too} spunky, so we
 renamed it back again to ``Gnus''.  But in mixed case.  ``Gnus'' vs.
-``@sc{gnus}''.  New vs. old.
+``@sc{gnus}''.  New vs.@: old.
 
 @menu
 * Gnus Versions::               What Gnus versions have been released.
@@ -29055,8 +28963,6 @@ that are accessible from the article buffer.
 nnfolder archives.
 
 @item Gnus now supports the ``hashcash'' client puzzle anti-spam mechanism.
-Use @code{(setq message-generate-hashcash t)} to enable.
-@xref{Hashcash}.
 
 @item You can now drag and drop attachments to the Message buffer.
 See @code{mml-dnd-protocol-alist} and @code{mml-dnd-attach-options}.

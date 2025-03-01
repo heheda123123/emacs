@@ -1,6 +1,6 @@
 ;;; url-queue.el --- Fetching web pages in parallel   -*- lexical-binding: t -*-
 
-;; Copyright (C) 2011-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: comm
@@ -87,7 +87,7 @@ The variable `url-queue-timeout' sets a timeout."
       (cond
        ((or (url-queue-start-time entry)
 	    (url-queue-pre-triggered entry))
-	(cl-incf running))
+        (incf running))
        ((not waiting)
 	(setq waiting entry))))
     (when (and waiting
@@ -108,7 +108,7 @@ The variable `url-queue-timeout' sets a timeout."
     (dolist (entry url-queue)
       (cond
        ((url-queue-start-time entry)
-	(cl-incf running))
+        (incf running))
        ((not waiting)
 	(setq waiting entry))))
     (when (and waiting

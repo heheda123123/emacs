@@ -1,6 +1,6 @@
 ;;; registry.el --- Track and remember data items by various fields  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2011-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
 
 ;; Author: Teodor Zlatanov <tzz@lifelogs.com>
 ;; Keywords: data
@@ -310,7 +310,7 @@ Errors out if the key exists already."
     (dolist (tr (oref db tracked))
       (maphash
        (lambda (key v)
-	 (cl-incf count)
+         (incf count)
 	 (when (and (< 0 expected)
 		    (= 0 (mod count 1000)))
 	   (message "reindexing: %d of %d (%.2f%%)"

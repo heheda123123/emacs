@@ -1,6 +1,6 @@
 ;;; org-persist.el --- Persist cached data across Emacs sessions         -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2021-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2021-2025 Free Software Foundation, Inc.
 
 ;; Author: Ihor Radchenko <yantar92 at posteo dot net>
 ;; Keywords: cache, storage
@@ -448,6 +448,8 @@ FORMAT and ARGS are passed to `message'."
                  buffer-or-file (error-message-string err)))
          nil)))))
 
+;; FIXME: `pp' is very slow when writing even moderately large datasets
+;; We should probably drop it or find some fast formatter.
 (defun org-persist--write-elisp-file (file data &optional no-circular pp)
   "Write elisp DATA to FILE."
   ;; Fsync slightly reduces the chance of an incomplete filesystem
@@ -459,7 +461,7 @@ FORMAT and ARGS are passed to `message'."
   ;; With all this in mind, we ensure `write-region-inhibit-fsync' is
   ;; set.
   ;;
-  ;; To read more about this, see the comments in Emacs' fileio.c, in
+  ;; To read more about this, see the comments in Emacs's fileio.c, in
   ;; particular the large comment block in init_fileio.
   (let ((write-region-inhibit-fsync t)
         ;; We set UTF-8 here and in `org-persist--read-elisp-file'
@@ -592,7 +594,7 @@ MISC, if non-nil will be appended to the collection.  It must be a plist."
   (unless (and (listp container) (listp (car container)))
     (setq container (list container)))
   (setq associated (org-persist--normalize-associated associated))
-  (when (and misc (or (not (listp misc)) (= 1 (% (length misc) 2))))
+  (when (and misc (or (not (listp misc)) (cl-oddp (length misc))))
     (error "org-persist: Not a plist: %S" misc))
   (or (org-persist--find-index
        `( :container ,(org-persist--normalize-container container)
@@ -666,7 +668,14 @@ When INNER is non-nil, do not try to match as list of containers."
                                 (fboundp 'file-attribute-inode-number))
                        (file-attribute-inode-number
                         (file-attributes file))))
-         (setq hash (secure-hash 'md5 associated))
+         (setq hash
+               ;; `secure-hash' may trigger interactive dialog when it
+               ;; cannot determine the coding system automatically.
+               ;; Force coding system that works reliably for any text
+               ;; to avoid it.  The hash will be consistent, as long
+               ;; as we use the same coding system.
+               (let ((coding-system-for-write 'emacs-internal))
+                 (secure-hash 'md5 associated)))
          (puthash associated
                   (list (buffer-modified-tick associated)
                         file inode hash)
@@ -801,8 +810,8 @@ COLLECTION is the plist holding data collection."
   (let ((scope (nth 2 container)))
     (pcase scope
       ((pred stringp)
-       (when-let ((buf (or (get-buffer scope)
-                           (get-file-buffer scope))))
+       (when-let* ((buf (or (get-buffer scope)
+                            (get-file-buffer scope))))
          ;; FIXME: There is `buffer-local-boundp' introduced in Emacs 28.
          ;; Not using it yet to keep backward compatibility.
          (condition-case nil
@@ -812,8 +821,8 @@ COLLECTION is the plist holding data collection."
        (when (boundp (cadr container))
          (symbol-value (cadr container))))
       (`nil
-       (if-let ((buf (and (plist-get (plist-get collection :associated) :file)
-                          (get-file-buffer (plist-get (plist-get collection :associated) :file)))))
+       (if-let* ((buf (and (plist-get (plist-get collection :associated) :file)
+                           (get-file-buffer (plist-get (plist-get collection :associated) :file)))))
            ;; FIXME: There is `buffer-local-boundp' introduced in Emacs 28.
            ;; Not using it yet to keep backward compatibility.
            (condition-case nil
@@ -891,7 +900,7 @@ Otherwise, return t."
     (let ((index-file
            (org-file-name-concat org-persist-directory org-persist-index-file)))
       (org-persist--merge-index-with-disk)
-      (org-persist--write-elisp-file index-file org-persist--index t t)
+      (org-persist--write-elisp-file index-file org-persist--index t)
       (setq org-persist--index-age
             (file-attribute-modification-time (file-attributes index-file)))
       index-file)))

@@ -1,6 +1,6 @@
 ;;; nnmail.el --- mail support functions for the Gnus mail backends  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1995-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; Keywords: news, mail
@@ -152,8 +152,9 @@ If nil, groups like \"mail.misc\" will end up in directories like
   :group 'nnmail-files
   :type 'boolean)
 
-(defcustom nnmail-default-file-modes 384
-  "Set the mode bits of all new mail files to this integer."
+(defcustom nnmail-default-file-modes #o600
+  "Set the mode bits of all new mail files to this integer.
+This is decimal, not octal.  The default is 384 (0600 in octal)."
   :group 'nnmail-files
   :type 'integer)
 
@@ -602,7 +603,7 @@ These will be logged to the \"*nnmail split*\" buffer."
 
 (defvar nnmail-incoming-coding-system
   mm-text-coding-system
-  "Coding system used in reading inbox")
+  "Coding system used in reading inbox.")
 
 (defcustom nnmail-pathname-coding-system nil
   "Coding system for file name."
@@ -789,7 +790,7 @@ If SOURCE is a directory spec, try to return the group name component."
 	  (narrow-to-region start (point))
 	  (goto-char (point-min))
 	  (nnmail-check-duplication message-id func artnum-func)
-	  (cl-incf count)
+          (incf count)
 	  (setq end (point-max))))
       (goto-char end))
     count))
@@ -935,7 +936,7 @@ If SOURCE is a directory spec, try to return the group name component."
 	  (save-restriction
 	    (narrow-to-region start (point))
 	    (goto-char (point-min))
-	    (cl-incf count)
+            (incf count)
 	    (nnmail-check-duplication message-id func artnum-func)
 	    (setq end (point-max))))
 	(goto-char end)))
@@ -988,7 +989,7 @@ If SOURCE is a directory spec, try to return the group name component."
 	  (save-restriction
 	    (narrow-to-region start (point))
 	    (goto-char (point-min))
-	    (cl-incf count)
+            (incf count)
 	    (nnmail-check-duplication message-id func artnum-func junk-func)
 	    (setq end (point-max))))
 	(goto-char end)
@@ -1306,7 +1307,7 @@ See `nnmail-ignore-broken-references'."
   :type 'regexp)
 
 (defun nnmail-ignore-broken-references ()
-  "Ignore the References line and use In-Reply-To
+  "Ignore the References line and use In-Reply-To.
 
 Eudora has a broken References line, but an OK In-Reply-To."
   (goto-char (point-min))
@@ -1847,8 +1848,8 @@ be called once per group or once for all groups."
 		      ((error quit)
 		       (message "Mail source %s failed: %s" source cond)
 		       0)))
-	  (cl-incf total new)
-	  (cl-incf i)))
+          (incf total new)
+          (incf i)))
       ;; If we did indeed read any incoming spools, we save all info.
       (if (zerop total)
 	  (when mail-source-plugged

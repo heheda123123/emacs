@@ -1,6 +1,6 @@
 ;;; mh-mime.el --- MH-E MIME support  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1993, 1995, 2001-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1995, 2001-2025 Free Software Foundation, Inc.
 
 ;; Author: Bill Wohler <wohler@newt.com>
 ;; Keywords: mail
@@ -750,7 +750,7 @@ buttons need to be displayed multiple times (for instance when
 nested messages are opened)."
   (or (gethash handle (mh-mime-part-index-hash (mh-buffer-data)))
       (setf (gethash handle (mh-mime-part-index-hash (mh-buffer-data)))
-            (cl-incf (mh-mime-parts-count (mh-buffer-data))))))
+            (incf (mh-mime-parts-count (mh-buffer-data))))))
 
 (defun mh-small-image-p (handle)
   "Decide whether HANDLE is a \"small\" image that can be displayed inline.

@@ -1,6 +1,6 @@
 ;;; backtrace.el --- generic major mode for Elisp backtraces -*- lexical-binding: t -*-
 
-;; Copyright (C) 2018-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2018-2025 Free Software Foundation, Inc.
 
 ;; Author: Gemini Lasswell
 ;; Keywords: lisp, tools, maint
@@ -33,7 +33,6 @@
 
 (eval-when-compile (require 'cl-lib))
 (eval-when-compile (require 'pcase))
-(eval-when-compile (require 'subr-x))        ; if-let
 (require 'find-func)
 (require 'help-mode)     ; Define `help-function-def' button type.
 (require 'lisp-mode)
@@ -202,6 +201,7 @@ frames where the source code location is known.")
   "+"   #'backtrace-multi-line
   "-"   #'backtrace-single-line
   "."   #'backtrace-expand-ellipses
+  "C-]"    #'abort-recursive-edit
   "<follow-link>" 'mouse-face
   "<mouse-2>"     #'mouse-select-window
 
@@ -750,7 +750,7 @@ Format it according to VIEW."
       (let ((fun-and-args (cons fun args)))
         (insert (backtrace--print-to-string fun-and-args)))
       ;; Skip the open-paren.
-      (cl-incf fun-beg)))
+      (incf fun-beg)))
     (when fun-file
       (make-text-button fun-beg
                         (or fun-end

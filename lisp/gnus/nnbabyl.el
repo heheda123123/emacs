@@ -1,6 +1,6 @@
 ;;; nnbabyl.el --- rmail mbox access for Gnus  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1995-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1995-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;;	Masanobu UMEDA <umerin@flab.flab.fujitsu.junet>
@@ -101,7 +101,7 @@
 	  (insert ".\n"))
 	(and (numberp nnmail-large-newsgroup)
 	     (> number nnmail-large-newsgroup)
-	     (zerop (% (cl-incf count) 20))
+             (zerop (% (incf count) 20))
 	     (nnheader-message 5 "nnbabyl: Receiving headers... %d%%"
 			       (floor (* count 100.0) number))))
 

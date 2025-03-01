@@ -1,6 +1,6 @@
 ;;; reftex-global.el --- operations on entire documents with RefTeX  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <dominik@science.uva.nl>
 ;; Maintainer: auctex-devel@gnu.org
@@ -152,7 +152,7 @@ No active TAGS table is required."
     (setq dlist (reftex-uniquify-by-car dlist))
     (if (null dlist) (error "No duplicate labels in document"))
     (switch-to-buffer-other-window "*Duplicate Labels*")
-    (set (make-local-variable 'TeX-master) master)
+    (setq-local TeX-master master)
     (erase-buffer)
     (insert "                MULTIPLE LABELS IN CURRENT DOCUMENT:\n")
     (insert
@@ -169,7 +169,7 @@ No active TAGS table is required."
     (while dlist
       (when (and (car (car dlist))
                  (cdr (car dlist)))
-        (cl-incf cnt)
+        (incf cnt)
         (insert (mapconcat #'identity (car dlist) "\n    ") "\n"))
       (pop dlist))
     (goto-char (point-min))
@@ -238,7 +238,7 @@ one with the `xr' package."
         (if (assoc label translate-alist)
             (error "Duplicate label %s" label))
         (setq new-label (concat (match-string 1 (car entry))
-                                (int-to-string (cl-incf (cdr nr-cell)))))
+                                (int-to-string (incf (cdr nr-cell)))))
         (push (cons label new-label) translate-alist)
         (or (string= label new-label) (setq changed-sequence t))))
 
@@ -350,7 +350,7 @@ one with the `xr' package."
                             (error "Abort")))
                     (reftex-unhighlight 1)))
                  ((and test cell)
-                  (cl-incf n))
+                  (incf n))
                  ((and (not test) cell)
                   ;; Replace
                   (goto-char (match-beginning 1))
@@ -492,17 +492,16 @@ With no argument, this command toggles
 	      (with-current-buffer crt-buf
 		(when reftex-mode
 		  (if (boundp 'multi-isearch-next-buffer-function)
-		      (set (make-local-variable
-			    'multi-isearch-next-buffer-function)
-			   #'reftex-isearch-switch-to-next-file)
-		    (set (make-local-variable 'isearch-wrap-function)
-			 #'reftex-isearch-wrap-function)
-		    (set (make-local-variable 'isearch-search-fun-function)
-			 (lambda () #'reftex-isearch-isearch-search))
-		    (set (make-local-variable 'isearch-push-state-function)
-			 #'reftex-isearch-push-state-function)
-		    (set (make-local-variable 'isearch-next-buffer-function)
-			 #'reftex-isearch-switch-to-next-file))
+                      (setq-local multi-isearch-next-buffer-function
+                                  #'reftex-isearch-switch-to-next-file)
+                    (setq-local isearch-wrap-function
+                                #'reftex-isearch-wrap-function)
+                    (setq-local isearch-search-fun-function
+                                (lambda () #'reftex-isearch-isearch-search))
+                    (setq-local isearch-push-state-function
+                                #'reftex-isearch-push-state-function)
+                    (setq-local isearch-next-buffer-function
+                                #'reftex-isearch-switch-to-next-file))
 		  (setq reftex-isearch-minor-mode t))))
 	    (add-hook 'reftex-mode-hook #'reftex-isearch-minor-mode))
 	(dolist (crt-buf (buffer-list))

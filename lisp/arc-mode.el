@@ -1,6 +1,6 @@
 ;;; arc-mode.el --- simple editing of archives  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1995, 1997-1998, 2001-2024 Free Software Foundation,
+;; Copyright (C) 1995, 1997-1998, 2001-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Morten Welinder <terra@gnu.org>
@@ -1075,7 +1075,7 @@ return nil.  Otherwise point is returned."
     (while (and (not found)
                 (not (eobp)))
       (forward-line 1)
-      (when-let ((descr (archive-get-descr t)))
+      (when-let* ((descr (archive-get-descr t)))
         (when (equal (archive--file-desc-ext-file-name descr) file)
           (setq found t))))
     (if (not found)
@@ -1097,7 +1097,7 @@ return nil.  Otherwise point is returned."
                          (beginning-of-line)
                          (bobp)))))
       (archive-next-line n)
-      (when-let ((descr (archive-get-descr t)))
+      (when-let* ((descr (archive-get-descr t)))
         (let ((candidate (archive--file-desc-ext-file-name descr))
               (buffer (current-buffer)))
           (when (and candidate
@@ -1692,7 +1692,7 @@ This doesn't recover lost files, it just undoes changes in the buffer itself."
                        (t (+ (string-width uid) (string-width gid) 1)))))
             (if (> len maxidlen) (setq maxidlen len))))
         (let ((size (archive--file-desc-size desc)))
-          (cl-incf totalsize size)
+          (incf totalsize size)
           (if (> size maxsize) (setq maxsize size))))
       (let* ((sizelen (length (number-to-string maxsize)))
              (dash
@@ -2090,8 +2090,7 @@ This doesn't recover lost files, it just undoes changes in the buffer itself."
 			    ((memq creator '(0 5 6 7 10 11 15)) ; Dos etc.
 			     (logior ?\444
 				     (if isdir (logior 16384 ?\111) 0)
-				     (if (zerop
-					  (logand 1 (get-byte (+ p 38))))
+				     (if (evenp (get-byte (+ p 38)))
 					 ?\222 0)))
 			    (t nil)))
 	     (fiddle  (and archive-zip-case-fiddle

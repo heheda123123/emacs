@@ -1,6 +1,6 @@
 ;;; image-mode.el --- support for visiting image files  -*- lexical-binding: t -*-
 ;;
-;; Copyright (C) 2005-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2025 Free Software Foundation, Inc.
 ;;
 ;; Author: Richard Stallman <rms@gnu.org>
 ;; Keywords: multimedia
@@ -867,6 +867,13 @@ The limits are given by the user option
         (or (<= mw (* (car size) scale))
             (<= mh (* (cdr size) scale))))))
 
+(defun image--update-properties (image properties)
+  "Update IMAGE with the new PROPERTIES set."
+  (let (prop)
+    (while (setq prop (pop properties))
+      (plist-put (cdr image) prop (pop properties)))
+    image))
+
 (defun image-toggle-display-image ()
   "Show the image of the image file.
 Turn the image data into a real image, but only if the whole file
@@ -959,7 +966,7 @@ was inserted."
 
     ;; Discard any stale image data before looking it up again.
     (image-flush image)
-    (setq image (append image (image-transform-properties image)))
+    (setq image (image--update-properties image (image-transform-properties image)))
     (setq props
 	  `(display ,image
 		    ;; intangible ,image
@@ -1557,7 +1564,7 @@ The percentage is in relation to the original size of the image."
   (interactive (list (read-number "Scale (% of original): " 100
                                   'read-number-history))
                image-mode)
-  (unless (cl-plusp scale)
+  (unless (plusp scale)
     (error "Not a positive number: %s" scale))
   (setq image-transform-resize (/ scale 100.0))
   (image-toggle-display-image))

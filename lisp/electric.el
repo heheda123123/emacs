@@ -1,6 +1,6 @@
 ;;; electric.el --- window maker and Command loop for `electric' modes  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1985-1986, 1995, 2001-2024 Free Software Foundation,
+;; Copyright (C) 1985-1986, 1995, 2001-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Author: K. Shane Hartman
@@ -385,6 +385,9 @@ If multiple rules match, only first one is executed.")
 (defvar electric-layout-allow-duplicate-newlines nil
   "If non-nil, allow duplication of `before' newlines.")
 
+(defvar electric-layout-allow-in-comment-or-string nil
+  "If non-nil, allow inserting newlines inside a comment or string.")
+
 (defun electric-layout-post-self-insert-function ()
   (when electric-layout-mode
     (electric-layout-post-self-insert-function-1)))
@@ -409,7 +412,10 @@ If multiple rules match, only first one is executed.")
                                 (goto-char pos)
                                 (funcall probe last-command-event))))
                          (when res (throw 'done res))))))))))
-    (when rule
+    (when (and rule
+               (or electric-layout-allow-in-comment-or-string
+                   ;; Not in a comment or string.
+                   (not (nth 8 (save-excursion (syntax-ppss pos))))))
       (goto-char pos)
       (when (functionp rule) (setq rule (funcall rule)))
       (dolist (sym (if (symbolp rule) (list rule) rule))
@@ -508,6 +514,7 @@ The variable `electric-layout-rules' says when and how to insert newlines."
 
 ;; The default :value-create produces "list of numbers" when given "list
 ;; of characters", this prints them as characters.
+(declare-function widget-get "wid-edit" (widget property))
 (defun electric--print-list-of-chars (widget)
   (let ((print-integers-as-characters t))
     (princ (widget-get widget :value) (current-buffer))))

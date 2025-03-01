@@ -1,5 +1,5 @@
 /* Haiku window system support
-   Copyright (C) 2021-2024 Free Software Foundation, Inc.
+   Copyright (C) 2021-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -53,10 +53,6 @@ Lisp_Object tip_frame;
 /* The X and Y deltas of the last call to `x-show-tip'.  */
 Lisp_Object tip_dx, tip_dy;
 
-/* The window-system window corresponding to the frame of the
-   currently visible tooltip.  */
-static Window tip_window;
-
 /* A timer that hides or deletes the currently visible tooltip when it
    fires.  */
 static Lisp_Object tip_timer;
@@ -72,9 +68,6 @@ static Lisp_Object tip_last_parms;
 
 static void haiku_explicitly_set_name (struct frame *, Lisp_Object, Lisp_Object);
 static void haiku_set_title (struct frame *, Lisp_Object, Lisp_Object);
-
-/* The number of references to an image cache.  */
-static ptrdiff_t image_cache_refcount;
 
 static Lisp_Object
 get_geometry_from_preferences (struct haiku_display_info *dpyinfo,
@@ -613,7 +606,7 @@ initial_setup_back_buffer (struct frame *f)
   unblock_input ();
 }
 
-static void
+static Lisp_Object
 unwind_create_frame (Lisp_Object frame)
 {
   struct frame *f = XFRAME (frame);
@@ -622,43 +615,27 @@ unwind_create_frame (Lisp_Object frame)
      display is disconnected after the frame has become official, but
      before x_create_frame removes the unwind protect.  */
   if (!FRAME_LIVE_P (f))
-    return;
+    return Qnil;
 
   /* If frame is ``official'', nothing to do.  */
   if (NILP (Fmemq (frame, Vframe_list)))
     {
-#if defined GLYPH_DEBUG && defined ENABLE_CHECKING
-      struct haiku_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
-#endif
-
-      /* If the frame's image cache refcount is still the same as our
-	 private shadow variable, it means we are unwinding a frame
-	 for which we didn't yet call init_frame_faces, where the
-	 refcount is incremented.  Therefore, we increment it here, so
-	 that free_frame_faces, called in free_frame_resources later,
-	 will not mistakenly decrement the counter that was not
-	 incremented yet to account for this new frame.  */
-      if (FRAME_IMAGE_CACHE (f) != NULL
-	  && FRAME_IMAGE_CACHE (f)->refcount == image_cache_refcount)
-	FRAME_IMAGE_CACHE (f)->refcount++;
-
       haiku_free_frame_resources (f);
       free_glyphs (f);
-
-#if defined GLYPH_DEBUG && defined ENABLE_CHECKING
-      /* Check that reference counts are indeed correct.  */
-      if (dpyinfo->terminal->image_cache)
-	eassert (dpyinfo->terminal->image_cache->refcount == image_cache_refcount);
-#endif
+      return Qt;
     }
+
+  return Qnil;
 }
 
 static void
 unwind_create_tip_frame (Lisp_Object frame)
 {
-  unwind_create_frame (frame);
-  tip_window = NULL;
-  tip_frame = Qnil;
+  Lisp_Object deleted;
+
+  deleted = unwind_create_frame (frame);
+  if (deleted)
+    tip_frame = Qnil;
 }
 
 static unsigned long
@@ -695,6 +672,12 @@ haiku_set_foreground_color (struct frame *f, Lisp_Object arg, Lisp_Object oldval
       if (FRAME_VISIBLE_P (f))
         redraw_frame (f);
     }
+}
+
+static void
+do_unwind_create_frame (Lisp_Object frame)
+{
+  unwind_create_frame (frame);
 }
 
 static Lisp_Object
@@ -783,7 +766,7 @@ haiku_create_frame (Lisp_Object parms)
   FRAME_DISPLAY_INFO (f) = dpyinfo;
 
   /* With FRAME_DISPLAY_INFO set up, this unwind-protect is safe.  */
-  record_unwind_protect (unwind_create_frame, frame);
+  record_unwind_protect (do_unwind_create_frame, frame);
 
   /* Set the name; the functions to which we pass f expect the name to
      be set.  */
@@ -806,9 +789,6 @@ haiku_create_frame (Lisp_Object parms)
 #endif
 #endif
   register_font_driver (&haikufont_driver, f);
-
-  image_cache_refcount =
-    FRAME_IMAGE_CACHE (f) ? FRAME_IMAGE_CACHE (f)->refcount : 0;
 
   gui_default_parameter (f, parms, Qfont_backend, Qnil,
                          "fontBackend", "FontBackend", RES_TYPE_STRING);
@@ -1098,9 +1078,6 @@ haiku_create_tip_frame (Lisp_Object parms)
 #endif
   register_font_driver (&haikufont_driver, f);
 
-  image_cache_refcount =
-    FRAME_IMAGE_CACHE (f) ? FRAME_IMAGE_CACHE (f)->refcount : 0;
-
   gui_default_parameter (f, parms, Qfont_backend, Qnil,
                          "fontBackend", "FontBackend", RES_TYPE_STRING);
 
@@ -1226,7 +1203,7 @@ haiku_create_tip_frame (Lisp_Object parms)
   {
     Lisp_Object bg = Fframe_parameter (frame, Qbackground_color);
 
-    call2 (Qface_set_after_frame_default, frame, Qnil);
+    calln (Qface_set_after_frame_default, frame, Qnil);
 
     if (!EQ (bg, Fframe_parameter (frame, Qbackground_color)))
       {
@@ -1339,7 +1316,7 @@ haiku_hide_tip (bool delete)
 
   if (!NILP (tip_timer))
     {
-      call1 (Qcancel_timer, tip_timer);
+      calln (Qcancel_timer, tip_timer);
       tip_timer = Qnil;
     }
 
@@ -2497,7 +2474,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 	  tip_f = XFRAME (tip_frame);
 	  if (!NILP (tip_timer))
 	    {
-	      call1 (Qcancel_timer, tip_timer);
+	      calln (Qcancel_timer, tip_timer);
 	      tip_timer = Qnil;
 	    }
 
@@ -2534,12 +2511,12 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 		      break;
 		    }
 		  else
-		    tip_last_parms =
-		      call2 (Qassq_delete_all, parm, tip_last_parms);
+		    tip_last_parms
+		      = calln (Qassq_delete_all, parm, tip_last_parms);
 		}
 	      else
-		tip_last_parms =
-		  call2 (Qassq_delete_all, parm, tip_last_parms);
+		tip_last_parms
+		  = calln (Qassq_delete_all, parm, tip_last_parms);
 	    }
 
 	  /* Now check if every parameter in what is left of
@@ -2710,7 +2687,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 
  start_timer:
   /* Let the tip disappear after timeout seconds.  */
-  tip_timer = call3 (Qrun_at_time, timeout, Qnil, Qx_hide_tip);
+  tip_timer = calln (Qrun_at_time, timeout, Qnil, Qx_hide_tip);
 
   return unbind_to (count, Qnil);
 }
@@ -2973,7 +2950,7 @@ It can later be retrieved with `x-get-resource'.  */)
 
 DEFUN ("haiku-frame-list-z-order", Fhaiku_frame_list_z_order,
        Shaiku_frame_list_z_order, 0, 1, 0,
-       doc: /* Return list of Emacs' frames, in Z (stacking) order.
+       doc: /* Return list of Emacs's frames, in Z (stacking) order.
 If TERMINAL is non-nil and specifies a live frame, return the child
 frames of that frame in Z (stacking) order.
 
@@ -3330,7 +3307,7 @@ invalid color.  */);
     int len = sprintf (cairo_version, "%d.%d.%d",
 		       CAIRO_VERSION_MAJOR, CAIRO_VERSION_MINOR,
                        CAIRO_VERSION_MICRO);
-    Vcairo_version_string = make_pure_string (cairo_version, len, len, false);
+    Vcairo_version_string = make_specified_string (cairo_version, len, len, false);
   }
 #endif
 

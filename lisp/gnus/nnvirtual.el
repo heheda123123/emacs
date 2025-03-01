@@ -1,6 +1,6 @@
 ;;; nnvirtual.el --- virtual newsgroups access for Gnus  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1994-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2025 Free Software Foundation, Inc.
 
 ;; Author: David Moore <dmoore@ucsd.edu>
 ;;	Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -436,7 +436,8 @@ lines have the correct component server prefix."
 (defun nnvirtual-update-read-and-marked (read-p update-p)
   "Copy marks from the virtual group to the component groups.
 If READ-P is not nil, update the (un)read status of the components.
-If UPDATE-P is not nil, call gnus-group-update-group on the components."
+If UPDATE-P is not nil, call `gnus-group-update-group' on the
+components."
   (when nnvirtual-current-group
     (let ((unreads (and read-p
 			(nnvirtual-partition-sequence
@@ -642,7 +643,7 @@ then it is left out of the result."
 
 (defun nnvirtual-partition-sequence (articles)
   "Return an association list of component article numbers.
-These are indexed by elements of nnvirtual-component-groups, based on
+These are indexed by elements of `nnvirtual-component-groups', based on
 the sequence ARTICLES of virtual article numbers.  ARTICLES should be
 sorted, and can be a compressed sequence.  If any of the article
 numbers has no corresponding component article, then it is left out of
@@ -777,13 +778,13 @@ based on the marks on the component groups."
 
     ;; We need to convert the unreads to reads.  We compress the
     ;; sequence as we go, otherwise it could be huge.
-    (while (and (<= (cl-incf i) nnvirtual-mapping-len)
+    (while (and (<= (incf i) nnvirtual-mapping-len)
 		unreads)
       (if (= i (car unreads))
 	  (setq unreads (cdr unreads))
 	;; try to get a range.
 	(setq beg i)
-	(while (and (<= (cl-incf i) nnvirtual-mapping-len)
+        (while (and (<= (incf i) nnvirtual-mapping-len)
 		    (not (= i (car unreads)))))
 	(setq i (- i 1))
 	(if (= i beg)

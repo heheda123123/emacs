@@ -1,6 +1,6 @@
 ;;; etags.el --- etags facility for Emacs  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1985-2025 Free Software Foundation, Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>
 ;; Maintainer: emacs-devel@gnu.org
@@ -44,7 +44,7 @@ invoke `visit-tags-table', which is the only reliable way of
 setting the value of this variable, whether buffer-local or global.
 Use the `etags' program to make a tags table file.")
 ;; Make M-x set-variable tags-file-name like M-x visit-tags-table.
-;;;###autoload (put 'tags-file-name 'variable-interactive (purecopy "fVisit tags table: "))
+;;;###autoload (put 'tags-file-name 'variable-interactive "fVisit tags table: ")
 ;;;###autoload (put 'tags-file-name 'safe-local-variable 'stringp)
 
 (defgroup etags nil "Tags tables."
@@ -73,7 +73,7 @@ Use the `etags' program to make a tags table file."
 
 ;;;###autoload
 (defcustom tags-compression-info-list
-  (purecopy '("" ".Z" ".bz2" ".gz" ".xz" ".tgz"))
+  '("" ".Z" ".bz2" ".gz" ".xz" ".tgz")
   "List of extensions tried by etags when `auto-compression-mode' is on.
 An empty string means search the non-compressed file."
   :version "24.1"			; added xz
@@ -445,6 +445,10 @@ Returns non-nil if it is a valid table."
 	(set-buffer (get-file-buffer file))
         (or verify-tags-table-function (tags-table-mode))
 	(unless (or (verify-visited-file-modtime (current-buffer))
+                    ;; 'verify-visited-file-modtime' return non-nil if
+                    ;; the tags table file was meanwhile deleted.  Avoid
+                    ;; asking the question below again if so.
+                    (not (file-exists-p file))
 		    ;; Decide whether to revert the file.
 		    ;; revert-without-query can say to revert
 		    ;; or the user can say to revert.
@@ -1364,7 +1368,7 @@ hits the start of file."
 	(cond (line (progn (goto-char (point-min))
 			   (forward-line (1- line))))
 	      (startpos (goto-char startpos))
-	      (t (error "etags.el BUG: bogus direct file tag")))
+              (t (error "etags.el: BUG: bogus direct file tag")))
       ;; This constant is 1/2 the initial search window.
       ;; There is no sense in making it too small,
       ;; since just going around the loop once probably
@@ -1894,27 +1898,40 @@ description of the arguments."
       (try-completion string (tags-table-files) predicate))))
 
 (defun tags--get-current-buffer-name-in-tags-file ()
-  "Get the file name that the current buffer corresponds in the tags file."
-  (let ((tag-dir
-         (save-excursion
-           (visit-tags-table-buffer)
-           (file-name-directory (buffer-file-name)))))
-    (file-relative-name (buffer-file-name) tag-dir)))
+  "Return file name that corresponds to the current buffer in the tags table.
+This returns the file name which corresponds to the current buffer relative
+to the directory of the current tags table (see `visit-tags-table-buffer').
+If no file is associated with the current buffer, this function returns nil."
+  (let ((buf-fname (buffer-file-name)))
+    ;; FIXME: Are there interesting cases where 'buffer-file-name'
+    ;; returns nil, but there's some file we expect to find in TAGS that
+    ;; is associated with the buffer?  The obvious cases of Dired and
+    ;; Info buffers are not interesting for TAGS, but are there any
+    ;; others?
+    (if buf-fname
+        (let ((tag-dir
+               (save-excursion
+                 (visit-tags-table-buffer)
+                 (file-name-directory buf-fname))))
+          (file-relative-name buf-fname tag-dir)))))
 
 ;;;###autoload
 (defun list-tags (file &optional _next-match)
   "Display list of tags in file FILE.
-This searches only the first table in the list, and no included
-tables.  FILE should be as it appeared in the `etags' command,
-usually without a directory specification.  If called
-interactively, FILE defaults to the file name of the current
-buffer."
+Interactively, prompt for FILE, with completion, offering the current
+buffer's file name as the default.
+This command searches only the first table in the list of tags tables,
+and does not search included tables.
+FILE should be as it was submitted to the `etags' command, which usually
+means relative to the directory of the tags table file."
   (interactive (list (completing-read
                       "List tags in file: "
                       'tags-complete-tags-table-file
                       nil t
-                      ;; Default FILE to the current buffer.
+                      ;; Default FILE to the current buffer's file.
                       (tags--get-current-buffer-name-in-tags-file))))
+  (if (string-empty-p file)
+      (user-error "You must specify a file name"))
   (with-output-to-temp-buffer "*Tags List*"
     (princ (substitute-command-keys "Tags in file `"))
     (tags-with-face 'highlight (princ file))
@@ -2182,7 +2199,7 @@ file name, add `tag-partial-file-name-match-p' to the list value.")
        (when (symbolp symbs)
          (if (boundp symbs)
              (setq symbs (symbol-value symbs))
-           (warn "symbol `%s' has no value" symbs)
+           (warn "Symbol `%s' has no value" symbs)
            (setq symbs nil))
          (if (obarrayp symbs)
              (mapatoms add-xref symbs)

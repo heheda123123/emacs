@@ -1,6 +1,6 @@
 ;;; package-tests.el --- Tests for the Emacs package system  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2013-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2013-2025 Free Software Foundation, Inc.
 
 ;; Author: Daniel Hackney <dan@haxney.org>
 ;; Version: 1.0
@@ -128,11 +128,11 @@
             package-selected-packages
             ,@(if update-news
                   '(package-update-news-on-upload t)
-                (list (cl-gensym)))
+                (list (gensym)))
             ,@(if upload-base
                   '((package-test-archive-upload-base (make-temp-file "pkg-archive-base-" t))
                     (package-archive-upload-base package-test-archive-upload-base))
-                (list (cl-gensym)))) ;; Dummy value so `let' doesn't try to bind nil
+                (list (gensym)))) ;; Dummy value so `let' doesn't try to bind nil
        (let ((buf (get-buffer "*Packages*")))
          (when (buffer-live-p buf)
            (kill-buffer buf)))
@@ -826,7 +826,8 @@ but with a different end of line convention (bug#48137)."
 
 ;;; Tests for package-x features.
 
-(require 'package-x)
+(with-suppressed-warnings ((obsolete package-x))
+  (require 'package-x))
 
 (defvar package-x-test--single-archive-entry-1-3
   (cons 'simple-single

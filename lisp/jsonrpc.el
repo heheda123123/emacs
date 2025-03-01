@@ -1,6 +1,6 @@
 ;;; jsonrpc.el --- JSON-RPC library                  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2018-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2018-2025 Free Software Foundation, Inc.
 
 ;; Author: João Távora <joaotavora@gmail.com>
 ;; Keywords: processes, languages, extensions
@@ -125,7 +125,7 @@ size of the log buffer (0 disables, nil means infinite).  The
                            t))
   (when e-b-s-s-supplied-p
     (warn
-     "`:events-buffer-scrollback-size' deprecated. Use `events-buffer-config'.")
+     "`:events-buffer-scrollback-size' deprecated.  Use `events-buffer-config'.")
     (with-slots ((plist -events-buffer-config)) c
       (setf plist (copy-sequence plist)
             plist (plist-put plist :size events-buffer-scrollback-size)))))
@@ -204,7 +204,8 @@ JSONRPC message."
 ;;;
 (cl-defmacro jsonrpc-lambda (cl-lambda-list &body body)
   (declare (indent 1) (debug (sexp &rest form)))
-  (let ((e (cl-gensym "jsonrpc-lambda-elem")))
+  (let ((e (funcall (if (fboundp 'gensym) 'gensym 'cl-gensym)
+                    "jsonrpc-lambda-elem")))
     `(lambda (,e) (apply (cl-function (lambda ,cl-lambda-list ,@body)) ,e))))
 
 (defun jsonrpc-events-buffer (connection)
@@ -377,9 +378,9 @@ never be sent at all, in case it is overridden in the meantime by
 a new request with identical DEFERRED and for the same buffer.
 However, in that situation, the original timeout is kept.
 
-Returns nil."
-  (apply #'jsonrpc--async-request-1 connection method params args)
-  nil)
+Returns a list whose first element is an integer identifying the request
+as specified in the JSONRPC 2.0 spec."
+  (apply #'jsonrpc--async-request-1 connection method params args))
 
 (cl-defun jsonrpc-request (connection
                            method params &key
@@ -399,11 +400,15 @@ error of type `jsonrpc-error'.
 
 DEFERRED and TIMEOUT as in `jsonrpc-async-request', which see.
 
-If CANCEL-ON-INPUT is non-nil and the user inputs something while
-the function is waiting, then it exits immediately, returning
-CANCEL-ON-INPUT-RETVAL.  Any future replies (normal or error) are
-ignored."
-  (let* ((tag (cl-gensym "jsonrpc-request-catch-tag")) id-and-timer
+If CANCEL-ON-INPUT is non-nil and the user inputs something while the
+function is waiting, then any future replies to the request by the
+remote endpoint (normal or error) are ignored and the function exits
+returning CANCEL-ON-INPUT-RETVAL.  If CANCEL-ON-INPUT is a function, it
+is invoked with one argument, an integer identifying the canceled
+request as specified in the JSONRPC 2.0 spec."
+  (let* ((tag (funcall (if (fboundp 'gensym) 'gensym 'cl-gensym)
+                       "jsonrpc-request-catch-tag"))
+         id-and-timer
          canceled
          (throw-on-input nil)
          (retval
@@ -435,6 +440,8 @@ ignored."
                        (unwind-protect
                            (let ((inhibit-quit t)) (while (sit-for 30)))
                          (setq canceled t))
+                       (when (functionp cancel-on-input)
+                         (funcall cancel-on-input (car id-and-timer)))
                        `(canceled ,cancel-on-input-retval))
                       (t (while t (accept-process-output nil 30)))))
             ;; In normal operation, continuations for error/success is
@@ -466,8 +473,17 @@ ignored."
 (define-obsolete-variable-alias 'jrpc-default-request-timeout
   'jsonrpc-default-request-timeout "28.1")
 
-(defconst jsonrpc-default-request-timeout 10
-  "Time in seconds before timing out a JSONRPC request.")
+(defgroup jsonrpc nil
+  "JSON-RPC customization."
+  :prefix "jsonrpc-"
+  :group 'comm)
+
+(defcustom jsonrpc-default-request-timeout 10
+  "Time in seconds before timing out a JSON-RPC request without response."
+  :version "30.1"
+  :type 'number
+  :safe 'numberp
+  :group 'jsonrpc)
 
 
 ;;; Specific to `jsonrpc-process-connection'
@@ -658,7 +674,7 @@ and delete the network process."
 
 (defun jsonrpc--call-deferred (connection)
   "Call CONNECTION's deferred actions, who may again defer themselves."
-  (when-let ((actions (hash-table-values (jsonrpc--deferred-actions connection))))
+  (when-let* ((actions (hash-table-values (jsonrpc--deferred-actions connection))))
     (jsonrpc--event
      connection 'internal
      :log-text (format "re-attempting deferred requests %s"
@@ -689,7 +705,7 @@ and delete the network process."
                 (jsonrpc--continuations connection))
         (jsonrpc--message "Server exited with status %s" (process-exit-status proc))
         (delete-process proc)
-        (when-let (p (slot-value connection '-autoport-inferior)) (delete-process p))
+        (when-let* ((p (slot-value connection '-autoport-inferior))) (delete-process p))
         (funcall (jsonrpc--on-shutdown connection) connection)))))
 
 (defvar jsonrpc--in-process-filter nil
@@ -807,7 +823,7 @@ Also cancel \"deferred actions\" if DEFERRED-SPEC.
 Return the full continuation (ID SUCCESS-FN ERROR-FN TIMER)"
   (with-slots ((conts -continuations) (defs -deferred-actions)) conn
     (if deferred-spec (remhash deferred-spec defs))
-    (when-let ((ass (assq id conts)))
+    (when-let* ((ass (assq id conts)))
       (cl-destructuring-bind (_ _ _ _ timer) ass
         (when timer (cancel-timer timer)))
       (setf conts (delete ass conts))
@@ -825,7 +841,7 @@ Return the full continuation (ID SUCCESS-FN ERROR-FN TIMER)"
     (cond
      (anxious
       (when (not (= (car head) id)) ; sanity check
-        (error "internal error: please report this bug"))
+        (error "Internal error: please report this bug"))
       ;; If there are "anxious" `jsonrpc-request' continuations
       ;; that should already have been run, they should run now.
       ;; The main continuation -- if it exists -- should run

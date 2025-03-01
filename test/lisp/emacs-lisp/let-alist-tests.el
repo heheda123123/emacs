@@ -1,6 +1,6 @@
 ;;; let-alist.el --- tests for file handling. -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2012-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2025 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -69,9 +69,9 @@
     (should
      (equal
       (let-alist (list
-                  (cons 'test-two (cl-incf let-alist--test-counter))
-                  (cons 'test-three (cl-incf let-alist--test-counter)))
-        (list .test-one .test-two .test-two .test-three .cl-incf))
+                  (cons 'test-two (incf let-alist--test-counter))
+                  (cons 'test-three (incf let-alist--test-counter)))
+        (list .test-one .test-two .test-two .test-three .incf))
       '(nil 1 1 2 nil)))))
 
 (ert-deftest let-alist-remove-dot ()

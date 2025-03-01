@@ -1,6 +1,6 @@
 /* Header file for the tree-sitter integration.
 
-Copyright (C) 2021-2024 Free Software Foundation, Inc.
+Copyright (C) 2021-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -45,10 +45,47 @@ struct Lisp_TS_Parser
      same tag.  A tag is primarily used to differentiate between
      parsers for the same language.  */
   Lisp_Object tag;
-  /* The Lisp ranges last set.  This is use to compare to the new
-     ranges the users wants to set, and avoid reparse if the new
-     ranges is the same as the last set one.  */
+  /* The Lisp ranges last set.  One purpose for it is to compare to the
+     new ranges the users wants to set, and avoid reparse if the new
+     ranges is the same as the current one.  Another purpose is to store
+     the ranges in charpos (ts api returns ranges in bytepos).  We need
+     to use charpos so we don't end up having a range cut into a
+     multibyte character.  (See (ref:bytepos-range-pitfall) in treesit.c
+     for more detail.)
+
+     treesit-parser-set-included-ranges sets this field;
+     treesit-parser-included-ranges directly returns this field, and
+     before each reparse, treesit_sync_visible_region uses this to
+     calculate a range for the parser that fits in the visible region.
+
+     Trivia: when the parser doesn't have a range set and we call
+     ts_parser_included_ranges on it, it doesn't return an empty list,
+     but rather return DEFAULT_RANGE.  (A single range where start_byte
+     = 0, end_byte = UINT32_MAX).  */
   Lisp_Object last_set_ranges;
+  /* Parsers for embedded code blocks will have a non-zero embed level.
+     The primary parser has level 0, and each additional layer of parser
+     embedding increments the leve by 1.  The embed level can be either
+     a non-negative integer or nil.  Every parser created by
+     'treesit-parser-create' starts with a nil level.  If the value is
+     nil, that means the range functions (treesit-update-ranges and
+     friends) haven't touched this parser yet, and this parser isn't
+     part of the embed parser tree.  */
+  Lisp_Object embed_level;
+  /* Some comments: Technically you could calculate embed_level by
+     following parent_node, but parent_node might be outdated so it's a
+     good idea to record embed_level separately.  Embed_level and
+     parent_node could have been implemented as "parser properties" with
+     an obarray, but ultimately I think two explicit fields helps
+     documentation better and it's not clear to me that a property list
+     for a parser will be useful beyond this.  And we can always convert
+     these to properties later, but not vice versa.  */
+  /* When an embedded parser is created, it's usually based on a node in
+     the host parser.  This field saves that node so it's possible to
+     climb up and out of the embedded parser into the host parser.  Note
+     that the range of the embedded parser doesn't have to match that of
+     the parent node.  */
+  Lisp_Object parent_node;
   /* The buffer associated with this parser.  */
   Lisp_Object buffer;
   /* The pointer to the tree-sitter parser.  Never NULL.  */
@@ -82,6 +119,14 @@ struct Lisp_TS_Parser
   /* If this field is true, parser functions raises
      treesit-parser-deleted signal.  */
   bool deleted;
+  /* If this field is true, deleting the parser should also delete the
+     associated buffer.  This is for parsers created by
+     treesit-parse-string, which uses a hidden temp buffer.  */
+  bool need_to_gc_buffer;
+  /* This field is set to true when treesit_ensure_parsed runs, to
+     prevent infinite recursion due to calling after change
+     functions.  */
+  bool within_reparse;
 };
 
 /* A wrapper around a tree-sitter node.  */
@@ -119,12 +164,15 @@ struct Lisp_TS_Query
   Lisp_Object language;
   /* Source lisp (sexp or string) query.  */
   Lisp_Object source;
-  /* Pointer to the query object.  This can be NULL, meaning this
-     query is not initialized/compiled.  We compile the query when
-     it is used the first time (in treesit-query-capture).  */
+  /* Pointer to the query object.  This can be NULL, meaning this query
+     is not initialized/compiled.  We compile the query when it is used
+     the first time.  (See treesit_ensure_query_compiled.)  */
   TSQuery *query;
-  /* Pointer to a cursor.  If we are storing the query object, we
-     might as well store a cursor, too.  */
+  /* Pointer to a cursor.  If we are storing the query object, we might
+     as well store a cursor, too.  This can be NULL; caller should use
+     treesit_ensure_query_cursor to access the cursor.  We made cursor
+     to be NULL-able because it makes dumping and loading queries
+     easy.  */
   TSQueryCursor *cursor;
 };
 

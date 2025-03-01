@@ -1,6 +1,6 @@
 ;;; flymake-tests.el --- Test suite for flymake -*- lexical-binding: t -*-
 
-;; Copyright (C) 2011-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
 
 ;; Author: Eduard Wiebe <usenet@pusto.de>
 
@@ -174,13 +174,34 @@ SEVERITY-PREDICATE is used to setup
     (flymake-tests--with-flymake
         ("some-problems.h")
       (flymake-goto-next-error)
-      (should (eq 'flymake-warning (face-at-point)))
+      ;; implicit-int was promoted from warning to error in GCC 14
+      (should (memq (face-at-point) '(flymake-warning flymake-error)))
       (flymake-goto-next-error)
       (should (eq 'flymake-error (face-at-point)))
       (should-error (flymake-goto-next-error nil nil t)))
     (flymake-tests--with-flymake
         ("no-problems.h")
       (should-error (flymake-goto-next-error nil nil t)))))
+
+(ert-deftest foreign-diagnostics ()
+  "Test Flymake in one file impacts another"
+  (skip-unless (and (executable-find "gcc")
+                    (not (ert-gcc-is-clang-p))
+                    (executable-find "make")))
+  (flymake-tests--with-flymake
+      ("another-problematic-file.c")
+    (flymake-tests--with-flymake
+        ("some-problems.h")
+      (search-forward "frob")
+      (backward-char 1)
+      (should (eq 'flymake-note (face-at-point)))
+      (let ((diags (flymake-diagnostics (point))))
+        (should (= 1 (length diags)))
+        (should (eq :note (flymake-diagnostic-type (car diags))))
+        ;; This note would never been here if it werent' a foreign
+        ;; diagnostic sourced in 'another-problematic-file.c'.
+        (should (string-match "previous declaration"
+                              (flymake-diagnostic-text (car diags))))))))
 
 (defmacro flymake-tests--assert-set (set
                                      should

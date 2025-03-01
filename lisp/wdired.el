@@ -1,8 +1,7 @@
 ;;; wdired.el --- Rename files editing their names in dired buffers -*- coding: utf-8; lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2025 Free Software Foundation, Inc.
 
-;; Filename: wdired.el
 ;; Author: Juan León Lahoz García <juanleon1@gmail.com>
 ;; Old-Version: 2.0
 ;; Keywords: dired, environment, files, renaming
@@ -36,7 +35,7 @@
 ;; Dired buffer editable, by changing the buffer mode (which inhibits
 ;; all of the commands of Dired mode).  Here you can edit the names of
 ;; one or more files and directories, and when you press `C-c C-c',
-;; the renaming takes effect and you are back to dired mode.
+;; the renaming takes effect and you are back to Dired mode.
 ;;
 ;; Other things you can do with WDired:
 ;;
@@ -70,10 +69,11 @@
 ;;; Code:
 
 (require 'dired)
+(eval-when-compile (require 'cl-lib))
 (autoload 'dired-do-create-files-regexp "dired-aux")
 
 (defgroup wdired nil
-  "Mode to rename files by editing their names in dired buffers."
+  "Mode to rename files by editing their names in Dired buffers."
   :group 'dired)
 
 (defcustom wdired-use-interactive-rename nil
@@ -94,8 +94,7 @@ is not nil."
 That is, always move the point to the beginning of the filename at line.
 
 If `sometimes', only move to the beginning of filename if the point is
-before it, and `track-eol' is non-nil.  This behavior is very handy
-when editing several filenames.
+before it.  This behavior is very handy when editing several filenames.
 
 If nil, \"up\" and \"down\" movement is done as in any other buffer."
   :type '(choice (const :tag "As in any other mode" nil)
@@ -439,7 +438,7 @@ non-nil means return old filename."
              (concat (dired-current-directory) file))))))
 
 (defun wdired-change-to-dired-mode ()
-  "Change the mode back to dired."
+  "Change the mode back to Dired."
   (or (eq major-mode 'wdired-mode)
       (error "Not a Wdired buffer"))
   (let ((inhibit-read-only t))
@@ -529,7 +528,7 @@ non-nil means return old filename."
     (when files-renamed
       (pcase-let ((`(,errs . ,successful-renames)
                    (wdired-do-renames files-renamed)))
-        (cl-incf errors errs)
+        (incf errors errs)
         ;; Some of the renames may fail -- in that case, don't mark an
         ;; already-existing file with the same name as renamed.
         (pcase-dolist (`(,file . _) wdired--old-marks)
@@ -678,8 +677,8 @@ non-nil means return old filename."
        (make-directory (file-name-directory file-new) t)))
 
 (defun wdired-exit ()
-  "Exit wdired and return to dired mode.
-Just return to dired mode if there are no changes.  Otherwise,
+  "Exit wdired and return to Dired mode.
+Just return to Dired mode if there are no changes.  Otherwise,
 ask a yes-or-no question whether to save or cancel changes,
 and proceed depending on the answer."
   (interactive)

@@ -1,6 +1,6 @@
 ;;; find-func-tests.el --- Unit tests for find-func.el  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2020-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2020-2025 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords:
@@ -45,6 +45,8 @@
                    (read-library-name)))))
 
 (ert-deftest find-func-tests--locate-symbols ()
+  ;; C source files are unavailable when testing on Android.
+  (skip-when (featurep 'android))
   (should (cdr
            (find-function-search-for-symbol
             #'goto-line nil "simple")))

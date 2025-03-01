@@ -1,6 +1,6 @@
 ;;; mm-encode.el --- Functions for encoding MIME things  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1998-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;;	MORIOKA Tomohiko <morioka@jaist.ac.jp>
@@ -207,7 +207,7 @@ This is either `base64' or `quoted-printable'."
 	(goto-char (point-min))
 	(skip-chars-forward "\x20-\x7f\r\n\t" limit)
 	(while (< (point) limit)
-	  (cl-incf n8bit)
+          (incf n8bit)
 	  (forward-char 1)
 	  (skip-chars-forward "\x20-\x7f\r\n\t" limit))
 	(if (or (< (* 6 n8bit) (- limit (point-min)))

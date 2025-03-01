@@ -1,6 +1,6 @@
 ;;; edebug-test-code.el --- Sample code for the Edebug test suite  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2017-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2017-2025 Free Software Foundation, Inc.
 
 ;; Author: Gemini Lasswell
 
@@ -43,7 +43,7 @@
         (result nil))
     (while !lt!(< index num)!test!
       (push index result)!loop!
-      (cl-incf index))!end-loop!
+      (incf index))!end-loop!
     (nreverse result)))
 
 (defun edebug-test-code-choices (input)

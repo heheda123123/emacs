@@ -1,6 +1,6 @@
 ;;; rmc.el --- read from a multiple choice question -*- lexical-binding: t -*-
 
-;; Copyright (C) 2016-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2016-2025 Free Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
 
@@ -179,6 +179,9 @@ Usage example:
     (read-multiple-choice--short-answers
      prompt choices help-string show-help)))
 
+(declare-function touch-screen-scroll "touch-screen.el")
+(declare-function touch-screen-pinch "touch-screen.el")
+
 (defun read-multiple-choice--short-answers (prompt choices help-string show-help)
   (let* ((dialog-p (use-dialog-box-p))
          (prompt-choices
@@ -188,7 +191,7 @@ Usage example:
           (format
            "%s (%s): "
            prompt
-           (mapconcat (lambda (e) (cdr e)) altered-names ", ")))
+           (mapconcat #'cdr altered-names ", ")))
          tchar buf wrong-char answer command)
     (save-window-excursion
       (save-excursion
@@ -213,8 +216,14 @@ Usage example:
                                     (car elem)))
                             prompt-choices)))
                   (condition-case nil
-                      (let ((cursor-in-echo-area t))
-                        (read-event))
+                      (let ((cursor-in-echo-area t)
+                            ;; Do NOT use read-event here.  That
+                            ;; function does not consult
+                            ;; input-decode-map (bug#75886).
+                            (key (read-key)))
+                        (when (eq key ?\C-g)
+                          (signal 'quit nil))
+                        key)
                     (error nil))))
           (if (memq (car-safe tchar) '(touchscreen-begin
                                        touchscreen-end
@@ -225,7 +234,10 @@ Usage example:
                 (when (setq command
                             (let ((current-key-remap-sequence
                                    (vector tchar)))
-                              (touch-screen-translate-touch nil)))
+                              ;; Provide an empty prompt so that it may
+                              ;; not repeatedly display and/or disable
+                              ;; the on-screen keyboard, or move point.
+                              (touch-screen-translate-touch "")))
                   (setq command (if (> (length command) 0)
                                     (aref command 0)
                                   nil))
@@ -240,9 +252,9 @@ Usage example:
                    ;; Respond to scroll and pinch events as if RMC were
                    ;; not in progress.
                    ((eq (car-safe command) 'touchscreen-scroll)
-                    (funcall #'touch-screen-scroll command))
+                    (touch-screen-scroll command))
                    ((eq (car-safe command) 'touchscreen-pinch)
-                    (funcall #'touch-screen-pinch command))
+                    (touch-screen-pinch command))
                    ;; Prevent other touchscreen-generated events from
                    ;; reaching the default conditional.
                    ((memq (or (and (symbolp command) command)

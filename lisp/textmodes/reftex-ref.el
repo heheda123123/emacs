@@ -1,6 +1,6 @@
 ;;; reftex-ref.el --- code to create labels and references with RefTeX  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <dominik@science.uva.nl>
 ;; Maintainer: auctex-devel@gnu.org
@@ -374,7 +374,7 @@ also applies `reftex-translate-to-ascii-function' to the string."
            (sep (or separator "")))
       (while (assoc (concat label sep (int-to-string num))
                     (symbol-value reftex-docstruct-symbol))
-        (cl-incf num))
+        (incf num))
       (setcdr cell num)
       (concat label sep (int-to-string num))))))
 

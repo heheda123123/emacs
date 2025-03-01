@@ -1,6 +1,6 @@
 ;;; reftex-cite.el --- creating citations with RefTeX  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <dominik@science.uva.nl>
 ;; Maintainer: auctex-devel@gnu.org
@@ -744,7 +744,7 @@ While entering the regexp, completion on known citation keys is possible.
       (if (> arg 1)
           (progn
             (skip-chars-backward "}")
-            (cl-decf arg)
+            (decf arg)
             (reftex-do-citation arg))
         (forward-char 1)))
 

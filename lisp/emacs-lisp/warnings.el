@@ -1,6 +1,6 @@
 ;;; warnings.el --- log and display warnings  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2002-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2002-2025 Free Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: internal
@@ -172,7 +172,7 @@ also call that function before the next warning.")
 ;; safely, testing the existing value, before they call one of the
 ;; warnings functions.
 ;;;###autoload
-(defvar warning-type-format (purecopy " (%s)")
+(defvar warning-type-format " (%s)"
   "Format for displaying the warning type in the warning message.
 The result of formatting the type this way gets included in the
 message under the control of the string in `warning-levels'.")
@@ -285,7 +285,7 @@ entirely by setting `warning-suppress-types' or
     (unless buffer-name
       (setq buffer-name "*Warnings*"))
     (with-suppressed-warnings ((obsolete warning-level-aliases))
-      (when-let ((new (cdr (assq level warning-level-aliases))))
+      (when-let* ((new (cdr (assq level warning-level-aliases))))
         (warn "Warning level `%s' is obsolete; use `%s' instead" level new)
         (setq level new)))
     (or (< (warning-numeric-level level)

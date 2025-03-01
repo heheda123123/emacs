@@ -1,6 +1,6 @@
 ;;; shell.el --- specialized comint.el for running the shell -*- lexical-binding: t -*-
 
-;; Copyright (C) 1988, 1993-1997, 2000-2024 Free Software Foundation,
+;; Copyright (C) 1988, 1993-1997, 2000-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Olin Shivers <shivers@cs.cmu.edu>
@@ -113,7 +113,7 @@
   :group 'shell)
 
 ;;;###autoload
-(defcustom shell-dumb-shell-regexp (purecopy "cmd\\(proxy\\)?\\.exe")
+(defcustom shell-dumb-shell-regexp "cmd\\(proxy\\)?\\.exe"
   "Regexp to match shells that don't save their command history, and
 don't handle the backslash as a quote character.  For shells that
 match this regexp, Emacs will write out the command history when the
@@ -432,8 +432,8 @@ interpreted as local file name on the remote host.
 If `shell-mode' is invoked in a local buffer, and no history file name
 can be determined, a default according to the shell type is used."
   :type '(choice (const :tag "Default" nil) (const :tag "Suppress" t) file)
+  :local 'permanent-only
   :version "30.1")
-(put 'shell-history-file-name 'permanent-local t)
 
 ;;; Basic Procedures
 
@@ -764,9 +764,10 @@ command."
              (setq-local comint-input-ring-size hsize))
         (setq comint-input-ring-file-name
               (concat remote hfile)))
-      (if (or (equal comint-input-ring-file-name "")
-	      (equal (file-truename comint-input-ring-file-name)
-		     (file-truename null-device)))
+      (if (and comint-input-ring-file-name
+               (or (equal comint-input-ring-file-name "")
+	           (equal (file-truename comint-input-ring-file-name)
+		          (file-truename null-device))))
 	  (setq comint-input-ring-file-name nil))
       ;; Arrange to write out the input ring on exit, if the shell doesn't
       ;; do this itself.
@@ -952,8 +953,8 @@ Make the shell buffer the current buffer, and return it.
                  (current-buffer)))
   ;; The buffer's window must be correctly set when we call comint
   ;; (so that comint sets the COLUMNS env var properly).
-  (with-suppressed-warnings ((obsolete display-comint-buffer-action))
-    (pop-to-buffer buffer display-comint-buffer-action))
+  (pop-to-buffer buffer (append display-buffer--same-window-action
+                                '((category . comint))))
 
   (with-connection-local-variables
    (when file-name
@@ -1254,7 +1255,7 @@ line output and parses it to form the new directory stack."
     (while dlsl
       (let ((newelt "")
             tem1 tem2)
-        (while newelt
+        (while (and dlsl newelt)
           ;; We need tem1 because we don't want to prepend
           ;; `comint-file-name-prefix' repeatedly into newelt via tem2.
           (setq tem1 (pop dlsl)
@@ -1628,10 +1629,14 @@ Returns t if successful."
           ;; a newline).  This is far from fool-proof -- if something
           ;; outputs incomplete data and then sleeps, we'll think
           ;; we've received the prompt.
-          (while (not (let* ((lines (string-lines result))
-                             (last (car (last lines))))
+          (while (not (let* ((lines (string-lines result nil t))
+                             (last (car (last lines)))
+                             (last-end (if (equal last "")
+                                           last
+                                         (substring last -1))))
                         (and (length> lines 0)
-                             (not (equal last ""))
+                             (not (member last '("" "\n")))
+                             (not (equal last-end "\n"))
                              (or (not prev)
                                  (not (equal last prev)))
                              (setq prev last))))
@@ -1654,19 +1659,19 @@ Returns t if successful."
   :version "29.1")
 
 (defface shell-highlight-undef-defined-face
-  '((t :inherit 'font-lock-function-name-face))
+  '((t :inherit font-lock-function-name-face))
   "Face used for existing shell commands."
   :group 'shell
   :version "29.1")
 
 (defface shell-highlight-undef-undefined-face
-  '((t :inherit 'font-lock-warning-face))
+  '((t :inherit font-lock-warning-face))
   "Face used for non-existent shell commands."
   :group 'shell
   :version "29.1")
 
 (defface shell-highlight-undef-alias-face
-  '((t :inherit 'font-lock-variable-name-face))
+  '((t :inherit font-lock-variable-name-face))
   "Face used for shell command aliases."
   :group 'shell
   :version "29.1")
@@ -1797,7 +1802,7 @@ works better if `comint-fontify-input-mode' is enabled."
       (progn
         (remove-hook 'comint-indirect-setup-hook shell--highlight-undef-indirect t)
         (setq shell--highlight-undef-indirect nil)
-        (when-let ((buf (comint-indirect-buffer t)))
+        (when-let* ((buf (comint-indirect-buffer t)))
           (with-current-buffer buf
             (font-lock-remove-keywords nil shell-highlight-undef-keywords))))
     (font-lock-remove-keywords nil shell-highlight-undef-keywords))
@@ -1837,7 +1842,7 @@ works better if `comint-fontify-input-mode' is enabled."
               (font-lock-add-keywords nil shell-highlight-undef-keywords t))))
       (cond (comint-fontify-input-mode
              (setq shell--highlight-undef-indirect setup)
-             (if-let ((buf (comint-indirect-buffer t)))
+             (if-let* ((buf (comint-indirect-buffer t)))
                  (with-current-buffer buf
                    (funcall setup))
                (add-hook 'comint-indirect-setup-hook setup nil t)))

@@ -1,6 +1,6 @@
 ;;; xwidget.el --- api functions for xwidgets  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2011-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2025 Free Software Foundation, Inc.
 
 ;; Author: Joakim Verona <joakim@verona.se>
 
@@ -81,7 +81,7 @@ This returns the result of `make-xwidget'."
 (defun xwidget-at (pos)
   "Return xwidget at POS."
   (let* ((disp (get-text-property pos 'display))
-         (xw (car (cdr (cdr disp)))))
+         (xw (ignore-errors (car (cdr (cdr disp))))))
     (when (xwidget-live-p xw) xw)))
 
 
@@ -378,7 +378,7 @@ one char."
              (> (window-hscroll) 0))
         (set-window-hscroll nil (- (window-hscroll) n))
       (xwidget-webkit-execute-script session
-                                     (format "window.scrollBy(%-d, 0);"
+                                     (format "window.scrollBy(-%d, 0);"
                                              (* n (window-font-width)))))))
 
 (defun xwidget-webkit-scroll-top ()
@@ -439,7 +439,7 @@ XWIDGET instance, XWIDGET-EVENT-TYPE depends on the originating xwidget."
     (cond ((eq xwidget-event-type 'load-changed)
            (let ((title (xwidget-webkit-title xwidget))
                  (uri (xwidget-webkit-uri xwidget)))
-             (when-let ((buffer (get-buffer "*Xwidget WebKit History*")))
+             (when-let* ((buffer (get-buffer "*Xwidget WebKit History*")))
                (with-current-buffer buffer
                  (revert-buffer)))
              (with-current-buffer (xwidget-buffer xwidget)
@@ -1090,7 +1090,7 @@ With argument, add COUNT copies of CHAR."
   (let ((i 0))
     (while (< i count)
       (xwidget-webkit-next-result (xwidget-webkit-current-session))
-      (cl-incf i)))
+      (incf i)))
   (xwidget-webkit-isearch--update t))
 
 (defun xwidget-webkit-isearch-backward (count)
@@ -1104,7 +1104,7 @@ With argument, add COUNT copies of CHAR."
   (let ((i 0))
     (while (< i count)
       (xwidget-webkit-previous-result (xwidget-webkit-current-session))
-      (cl-incf i)))
+      (incf i)))
   (xwidget-webkit-isearch--update t))
 
 (defun xwidget-webkit-isearch-exit ()

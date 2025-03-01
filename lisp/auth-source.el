@@ -1,6 +1,6 @@
 ;;; auth-source.el --- authentication sources for Gnus and Emacs -*- lexical-binding: t -*-
 
-;; Copyright (C) 2008-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2008-2025 Free Software Foundation, Inc.
 
 ;; Author: Ted Zlatanov <tzz@lifelogs.com>
 ;; Keywords: news
@@ -852,7 +852,7 @@ while \(:host t) would find all host entries."
                   (auth-source-specmatchp spec (cdr key)))
          ;; remove that key
          (password-cache-remove key)
-         (cl-incf count)))
+         (incf count)))
      password-data)
     count))
 
@@ -869,9 +869,9 @@ while \(:host t) would find all host entries."
 (defun auth-info-password (auth-info)
   "Return the :secret password from the AUTH-INFO."
   (let ((secret (plist-get auth-info :secret)))
-    (while (functionp secret)
-      (setq secret (funcall secret)))
-    secret))
+    (if (functionp secret)
+        (funcall secret)
+      secret)))
 
 (defun auth-source-pick-first-password (&rest spec)
   "Pick the first secret found by applying `auth-source-search' to SPEC."
@@ -1692,7 +1692,7 @@ authentication tokens:
     items))
 
 (cl-defun auth-source-secrets-create (&rest spec
-                                      &key backend host port create
+                                      &key backend host port create user
                                       &allow-other-keys)
   (let* ((base-required '(host user port secret label))
          ;; we know (because of an assertion in auth-source-search) that the
@@ -1700,6 +1700,7 @@ authentication tokens:
          (create-extra (if (eq t create) nil create))
          (current-data (car (auth-source-search :max 1
                                                 :host host
+                                                :user user
                                                 :port port)))
          (required (append base-required create-extra))
          (collection (oref backend source))
@@ -2162,7 +2163,7 @@ entries for git.gnus.org:
     items))
 
 (cl-defun auth-source-plstore-create (&rest spec
-                                      &key backend host port create
+                                      &key backend host port create user
                                       &allow-other-keys)
   (let* ((base-required '(host user port secret))
          (base-secret '(secret))
@@ -2172,9 +2173,11 @@ entries for git.gnus.org:
          (create-extra-secret (plist-get create :encrypted))
          (create-extra (if (eq t create) nil
                          (or (append (plist-get create :unencrypted)
-                                     create-extra-secret) create)))
+                                     create-extra-secret)
+                             create)))
          (current-data (car (auth-source-search :max 1
                                                 :host host
+                                                :user user
                                                 :port port)))
          (required (append base-required create-extra))
          (required-secret (append base-secret create-extra-secret))
@@ -2464,14 +2467,11 @@ point is moved into the passwords (see `authinfo-hide-elements').
   :version "30.1"
   :help-echo "mouse-1: Toggle password visibility")
 
-(defvar read-passwd--mode-line-buffer nil
-  "Buffer to modify `mode-line-format' for showing/hiding passwords.")
-
 (defvar read-passwd--mode-line-icon nil
   "Propertized mode line icon for showing/hiding passwords.")
 
 (defvar read-passwd--hide-password t
-  "Toggle whether password should be hidden in minubuffer.")
+  "Toggle whether password should be hidden in minibuffer.")
 
 (defun read-passwd--hide-password ()
   "Make password in minibuffer hidden or visible."
@@ -2494,8 +2494,8 @@ Adapt also mode line."
     ;; FIXME: In case of a recursive minibuffer, this may select the wrong
     ;; mini-buffer.
     (with-current-buffer (window-buffer win)
-      (setq read-passwd--hide-password (not read-passwd--hide-password))
-      (with-current-buffer read-passwd--mode-line-buffer
+      (when (memq 'read-passwd-mode local-minor-modes)
+        (setq read-passwd--hide-password (not read-passwd--hide-password))
         (setq read-passwd--mode-line-icon
               `(:propertize
                 ,(if icon-preference
@@ -2511,18 +2511,14 @@ Adapt also mode line."
                      (define-key map [mode-line mouse-1]
                                  #'read-passwd-toggle-visibility)
                      map))))
-        (force-mode-line-update))
-      (read-passwd--hide-password))))
+        (force-mode-line-update 'all)
+        (read-passwd--hide-password)))))
 
-(defvar read-passwd-map
-  ;; BEWARE: `defconst' would purecopy it, breaking the sharing with
-  ;; minibuffer-local-map along the way!
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map minibuffer-local-map)
-    (define-key map "\C-u" #'delete-minibuffer-contents) ;bug#12570
-    (define-key map "\t" #'read-passwd-toggle-visibility)
-    map)
-  "Keymap used while reading passwords.")
+(defvar-keymap read-passwd-map
+  :doc "Keymap used while reading passwords."
+  :parent minibuffer-local-map
+  "C-u" #'delete-minibuffer-contents ;bug#12570
+  "TAB" #'read-passwd-toggle-visibility)
 
 (define-minor-mode read-passwd-mode
   "Toggle visibility of password in minibuffer."
@@ -2531,25 +2527,18 @@ Adapt also mode line."
   :keymap read-passwd-map
   :version "30.1"
 
-  (setq read-passwd--hide-password nil
-        ;; Stolen from `eldoc-minibuffer-message'.
-        read-passwd--mode-line-buffer
-        (window-buffer
-         (or (window-in-direction 'above (minibuffer-window))
-	     (minibuffer-selected-window)
-	     (get-largest-window))))
+  (setq read-passwd--hide-password nil)
+  (or global-mode-string (setq global-mode-string '("")))
 
-  (if read-passwd-mode
-      (with-current-buffer read-passwd--mode-line-buffer
+  (let ((mode-string '(:eval read-passwd--mode-line-icon)))
+    (if read-passwd-mode
         ;; Add `read-passwd--mode-line-icon'.
-        (when (listp mode-line-format)
-          (setq mode-line-format
-                (cons '(:eval read-passwd--mode-line-icon)
-	              mode-line-format))))
-    (with-current-buffer read-passwd--mode-line-buffer
+        (or (member mode-string global-mode-string)
+            (setq global-mode-string
+	          (append global-mode-string (list mode-string))))
       ;; Remove `read-passwd--mode-line-icon'.
-      (when (listp mode-line-format)
-        (setq mode-line-format (cdr mode-line-format)))))
+      (setq global-mode-string
+	    (delete mode-string global-mode-string))))
 
   (when read-passwd-mode
     (read-passwd-toggle-visibility)))
@@ -2606,7 +2595,7 @@ by doing (clear-string STRING)."
               ;; Not sure why but it seems that there might be cases where the
               ;; minibuffer is not always properly reset later on, so undo
               ;; whatever we've done here (bug#11392).
-              (remove-hook 'after-change-functions
+              (remove-hook 'post-command-hook
                            #'read-passwd--hide-password 'local)
               (kill-local-variable 'post-self-insert-hook)
               ;; And of course, don't keep the sensitive data around.

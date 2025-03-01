@@ -1,6 +1,6 @@
 /* Communication module for Android terminals.  -*- c-file-style: "GNU" -*-
 
-Copyright (C) 2023-2024 Free Software Foundation, Inc.
+Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -267,13 +267,6 @@ public final class EmacsView extends ViewGroup
     return canvas;
   }
 
-  public synchronized void
-  prepareForLayout (int wantedWidth, int wantedHeight)
-  {
-    measuredWidth = wantedWidth;
-    measuredHeight = wantedWidth;
-  }
-
   @Override
   protected void
   onMeasure (int widthMeasureSpec, int heightMeasureSpec)
@@ -303,6 +296,9 @@ public final class EmacsView extends ViewGroup
 	     && height > MeasureSpec.getSize (heightMeasureSpec))
       height = MeasureSpec.getSize (heightMeasureSpec);
 
+    /* This is strictly necessary to propagate layout requests to
+       children.  */
+    this.measureChildren (widthMeasureSpec, heightMeasureSpec);
     super.setMeasuredDimension (width, height);
   }
 
@@ -425,7 +421,7 @@ public final class EmacsView extends ViewGroup
 	window.viewLayout (left, top, right, bottom);
       }
 
-    if (needExpose)
+    if (needExpose && isAttachedToWindow)
       EmacsNative.sendExpose (this.window.handle, 0, 0,
 			      right - left, bottom - top);
   }
@@ -473,9 +469,6 @@ public final class EmacsView extends ViewGroup
 				measuredWidth, measuredHeight);
       }
   }
-
-  /* This method is called from both the UI thread and the Emacs
-     thread.  */
 
   public void
   swapBuffers ()
@@ -627,8 +620,7 @@ public final class EmacsView extends ViewGroup
 	detachViewFromParent (index);
 
 	/* The view at 0 is the surface view.  */
-	attachViewToParent (child, 1,
-			    child.getLayoutParams ());
+	attachViewToParent (child, 1, child.getLayoutParams ());
       }
   }
 
@@ -773,23 +765,30 @@ public final class EmacsView extends ViewGroup
 
     /* Collect the bitmap storage; it could be large.  */
     Runtime.getRuntime ().gc ();
-
     super.onDetachedFromWindow ();
   }
 
   @Override
-  public synchronized void
+  public void
   onAttachedToWindow ()
   {
-    isAttachedToWindow = true;
+    synchronized (this)
+      {
+	isAttachedToWindow = true;
 
-    /* Dirty the bitmap, as it was destroyed when onDetachedFromWindow
-       was called.  */
-    bitmapDirty = true;
+	/* Dirty the bitmap, as it was destroyed when
+	   onDetachedFromWindow was called.  */
+	bitmapDirty = true;
 
-    /* Now expose the view contents again.  */
-    EmacsNative.sendExpose (this.window.handle, 0, 0,
-			    measuredWidth, measuredHeight);
+	/* Rather than unconditionally generating an exposure event upon
+	   window attachment, avoid delivering successive Exposure
+	   events if the size of the window has changed but is still to
+	   be reported by clearing the measured width and height, and
+	   requesting another layout computation.  */
+	measuredWidth = measuredHeight = 0;
+      }
+
+    requestLayout ();
     super.onAttachedToWindow ();
   }
 

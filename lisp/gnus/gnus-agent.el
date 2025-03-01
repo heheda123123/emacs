@@ -1,6 +1,6 @@
 ;;; gnus-agent.el --- unplugged support for Gnus  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;; This file is part of GNU Emacs.
@@ -153,7 +153,7 @@ this limit."
 When set to ENABLE, the default, `gnus-agent-expire' will expire old
 contents from a group's local storage.  This value may be overridden
 to disable expiration in specific categories, topics, and groups.  Of
-course, you could change gnus-agent-enable-expiration to DISABLE then
+course, you could change `gnus-agent-enable-expiration' to DISABLE then
 enable expiration per categories, topics, and groups."
   :version "22.1"
   :group 'gnus-agent
@@ -275,14 +275,14 @@ Actually a hash table holding subjects mapped to t.")
 ;;;
 
 (defmacro gnus-agent-with-refreshed-group (group &rest body)
-  "Performs the body then updates the group's line in the group
-buffer.  Automatically blocks multiple updates due to recursion."
+  "Perform the body then update the group's line in the group buffer.
+Automatically block multiple updates due to recursion."
   `(prog1 (let ((gnus-agent-inhibit-update-total-fetched-for t)) ,@body)
      (when (and gnus-agent-need-update-total-fetched-for
 		(not gnus-agent-inhibit-update-total-fetched-for))
-	(with-current-buffer gnus-group-buffer
-	  (setq gnus-agent-need-update-total-fetched-for nil)
-	  (gnus-group-update-group ,group t)))))
+       (with-current-buffer gnus-group-buffer
+         (setq gnus-agent-need-update-total-fetched-for nil)
+         (gnus-group-update-group ,group t)))))
 
 (defun gnus-agent-read-file (file)
   "Load FILE and do a `read' there."
@@ -618,8 +618,8 @@ manipulated as follows:
 (defun gnus-agentize ()
   "Allow Gnus to be an offline newsreader.
 
-The gnus-agentize function is now called internally by gnus when
-gnus-agent is set.  If you wish to avoid calling gnus-agentize,
+The `gnus-agentize' function is now called internally by gnus when
+`gnus-agent' is set.  If you wish to avoid calling `gnus-agentize',
 customize `gnus-agent' to nil.
 
 This will modify the `gnus-setup-news-hook', and
@@ -1785,9 +1785,9 @@ variables.  Returns the first non-nil value found."
                 (agent-predicate . gnus-agent-predicate)))))))
 
 (defun gnus-agent-fetch-headers (group)
-  "Fetch interesting headers into the agent.  The group's overview
-file will be updated to include the headers while a list of available
-article numbers will be returned."
+  "Fetch interesting headers into the agent.
+The group's overview file will be updated to include the headers while a
+list of available article numbers will be returned."
   (let* ((fetch-all (and gnus-agent-consider-all-articles
                          ;; Do not fetch all headers if the predicate
                          ;; implies that we only consider unread articles.
@@ -2166,7 +2166,7 @@ method's subscribed groups."
 	     'gnus-agent-file-loading-local
 	     #'gnus-agent-read-and-cache-local))
       (when gnus-agent-article-local-times
-	(cl-incf gnus-agent-article-local-times)))
+        (incf gnus-agent-article-local-times)))
     gnus-agent-article-local))
 
 (defun gnus-agent-read-and-cache-local (file)
@@ -3343,9 +3343,9 @@ missing NOV entry.  Run gnus-agent-regenerate-group to restore it.")))
 							       article-number)))
 			      (size (float (file-attribute-size
 					    (file-attributes file-name)))))
-			 (cl-incf bytes-freed size)
-			 (cl-incf size-files-deleted size)
-			 (cl-incf files-deleted)
+                         (incf bytes-freed size)
+                         (incf size-files-deleted size)
+                         (incf files-deleted)
 			 (delete-file file-name))
 		       (push "expired cached article" actions))
 		     (setf (nth 1 entry) nil)
@@ -3358,13 +3358,13 @@ missing NOV entry.  Run gnus-agent-regenerate-group to restore it.")))
 				    marker
 				  (- marker position-offset)))
 
-		     (cl-incf nov-entries-deleted)
+                     (incf nov-entries-deleted)
 
                      (let* ((from (line-beginning-position))
 			    (to (progn (forward-line 1) (point)))
 			    (freed (- to from)))
-		       (cl-incf bytes-freed freed)
-		       (cl-incf position-offset freed)
+                       (incf bytes-freed freed)
+                       (incf position-offset freed)
 		       (delete-region from to)))
 
 		   ;; If considering all articles is set, I can only
@@ -3421,9 +3421,9 @@ expiration tests failed." group article-number)
 
 	 (when (boundp 'gnus-agent-expire-stats)
 	   (let ((stats gnus-agent-expire-stats))
-	     (cl-incf (nth 2 stats) bytes-freed)
-	     (cl-incf (nth 1 stats) files-deleted)
-	     (cl-incf (nth 0 stats) nov-entries-deleted)))
+             (incf (nth 2 stats) bytes-freed)
+             (incf (nth 1 stats) files-deleted)
+             (incf (nth 0 stats) nov-entries-deleted)))
 
 	 (gnus-agent-update-files-total-fetched-for group (- size-files-deleted)))))))
 
@@ -4059,8 +4059,7 @@ CLEAN is obsolete and ignored."
 
 (defun gnus-agent-update-files-total-fetched-for (group delta
 							&optional method path)
-  "Update, or set, the total disk space used by the articles that the
-agent has fetched."
+  "Update or set total disk space used by articles that the agent has fetched."
   (when gnus-agent-total-fetched-hashtb
     (gnus-agent-with-refreshed-group
      group
@@ -4077,31 +4076,30 @@ agent has fetched."
 	       (let ((sum 0.0)
 		     file)
 		 (while (setq file (pop delta))
-		   (cl-incf sum (float (or (file-attribute-size
-					    (file-attributes
-					     (nnheader-concat
-					      path
-					      (if (numberp file)
-						  (number-to-string file)
-						file))))
-					   0))))
+                   (incf sum (float (or (file-attribute-size
+                                         (file-attributes
+                                          (nnheader-concat
+                                           path
+                                           (if (numberp file)
+                                               (number-to-string file)
+                                             file))))
+                                        0))))
 		 (setq delta sum))
 	     (let ((sum (- (nth 2 entry)))
 		   (info (directory-files-and-attributes
 			  path nil "\\`-?[0-9]+\\'" t))
 		   file)
 	       (while (setq file (pop info))
-		 (cl-incf sum (float (or (file-attribute-size (cdr file)) 0))))
+                 (incf sum (float (or (file-attribute-size (cdr file)) 0))))
 	       (setq delta sum))))
 
 	 (setq gnus-agent-need-update-total-fetched-for t)
-	 (cl-incf (nth 2 entry) delta))))))
+         (incf (nth 2 entry) delta))))))
 
 (defun gnus-agent-update-view-total-fetched-for
     (group agent-over &optional method path)
-  "Update, or set, the total disk space used by the .agentview and
-.overview files.  These files are calculated separately as they can be
-modified."
+  "Update or set the total disk space used by the .agentview and .overview files.
+These files are calculated separately as they can be modified."
   (when gnus-agent-total-fetched-hashtb
     (gnus-agent-with-refreshed-group
      group

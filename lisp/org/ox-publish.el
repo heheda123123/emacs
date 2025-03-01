@@ -1,5 +1,5 @@
 ;;; ox-publish.el --- Publish Related Org Mode Files as a Website -*- lexical-binding: t; -*-
-;; Copyright (C) 2006-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2025 Free Software Foundation, Inc.
 
 ;; Author: David O'Toole <dto@gnu.org>
 ;; Keywords: hypermedia, outlines, text
@@ -88,7 +88,7 @@ cdr of each element is in one of the following forms:
 
      (:components (\"project-1\" \"project-2\" ...))
 
-When the CDR of an element of org-publish-project-alist is in
+When the CDR of an element of `org-publish-project-alist' is in
 this second form, the elements of the list after `:components'
 are taken to be components of the project, which group together
 files requiring different publishing options.  When you publish
@@ -365,7 +365,7 @@ The timestamp file name is constructed using FILENAME, publishing
 directory PUB-DIR, and PUB-FUNC publishing function."
   (setq filename (concat filename "::" (or pub-dir "") "::"
 			 (format "%s" (or pub-func ""))))
-  (concat "X" (if (fboundp 'sha1) (sha1 filename) (md5 filename))))
+  (concat "X" (sha1 filename)))
 
 (defun org-publish-needed-p
     (filename &optional pub-dir pub-func _true-pub-dir base-dir)

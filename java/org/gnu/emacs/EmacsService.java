@@ -1,6 +1,6 @@
 /* Communication module for Android terminals.  -*- c-file-style: "GNU" -*-
 
-Copyright (C) 2023-2024 Free Software Foundation, Inc.
+Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -54,6 +54,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 
+import android.content.ActivityNotFoundException;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.ContentResolver;
@@ -937,11 +938,11 @@ public final class EmacsService extends Service
   }
 
   public void
-  updateCursorAnchorInfo (EmacsWindow window, float x,
+  updateCursorAnchorInfo (final EmacsWindow window, float x,
 			  float y, float yBaseline,
 			  float yBottom)
   {
-    CursorAnchorInfo info;
+    final CursorAnchorInfo info;
     CursorAnchorInfo.Builder builder;
     Matrix matrix;
     int[] offsets;
@@ -963,9 +964,14 @@ public final class EmacsService extends Service
       Log.d (TAG, ("updateCursorAnchorInfo: " + x + " " + y
 		   + " " + yBaseline + "-" + yBottom));
 
-    icBeginSynchronous ();
-    window.view.imManager.updateCursorAnchorInfo (window.view, info);
-    icEndSynchronous ();
+    EmacsService.SERVICE.runOnUiThread (new Runnable () {
+	@Override
+	public void
+	run ()
+	{
+	  window.view.imManager.updateCursorAnchorInfo (window.view, info);
+	}
+    });
   }
 
 
@@ -987,6 +993,7 @@ public final class EmacsService extends Service
     String name, mode;
     ParcelFileDescriptor fd;
     int i;
+    Uri uriObject;
 
     /* Figure out the file access mode.  */
 
@@ -1001,12 +1008,20 @@ public final class EmacsService extends Service
     if (truncate)
       mode += "t";
 
+    /* Decode the URI.  It might be possible for a perverse user to
+       construct a content file name that Android finds unparsable, so
+       punt if the result is NULL.  */
+
+    uriObject = Uri.parse (uri);
+    if (uriObject == null)
+      return -1;
+
     /* Try to open a corresponding ParcelFileDescriptor.  Though
        `fd.detachFd' is exclusive to Honeycomb and up, this function is
        never called on systems older than KitKat, which is Emacs's
        minimum requirement for access to /content/by-authority.  */
 
-    fd = resolver.openFileDescriptor (Uri.parse (uri), mode);
+    fd = resolver.openFileDescriptor (uriObject, mode);
     if (fd == null)
       return -1;
 
@@ -1027,7 +1042,14 @@ public final class EmacsService extends Service
     Uri uri;
     int rc, flags;
 
+    /* Decode the URI.  It might be possible that perverse user should
+       construct a content file name that Android finds unparsable, so
+       punt if the result is NULL.  */
+
     uri = Uri.parse (name);
+    if (uri == null)
+      return false;
+
     flags = 0;
 
     if (readable)
@@ -2076,7 +2098,15 @@ public final class EmacsService extends Service
 
 	  /* Now request these permissions.  */
 
-	  activity.startActivity (intent);
+	  try
+	    {
+	      activity.startActivity (intent);
+	    }
+	  catch (ActivityNotFoundException exception)
+	    {
+	      Log.w (TAG, "Failed to request storage access permissions: ");
+	      exception.printStackTrace ();
+	    }
 	}
       };
 

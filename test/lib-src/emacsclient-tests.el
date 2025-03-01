@@ -1,6 +1,6 @@
 ;;; emacsclient-tests.el --- Test emacsclient  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2016-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2016-2025 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -30,7 +30,7 @@
 (defconst emacsclient-test-emacs
   (if installation-directory
       (expand-file-name "lib-src/emacsclient" installation-directory)
-    "emacsclient")
+    emacsclient-program-name)
   "The emacsclient binary to test.")
 
 (defmacro emacsclient-test-call-emacsclient (editor)

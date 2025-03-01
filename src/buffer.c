@@ -1,6 +1,6 @@
 /* Buffer manipulation primitives for GNU Emacs.
 
-Copyright (C) 1985-2024 Free Software Foundation, Inc.
+Copyright (C) 1985-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -26,8 +26,6 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#include <verify.h>
 
 #include "lisp.h"
 #include "intervals.h"
@@ -113,7 +111,7 @@ static int last_per_buffer_idx;
 static void call_overlay_mod_hooks (Lisp_Object list, Lisp_Object overlay,
                                     bool after, Lisp_Object arg1,
                                     Lisp_Object arg2, Lisp_Object arg3);
-static void reset_buffer_local_variables (struct buffer *, bool);
+static void reset_buffer_local_variables (struct buffer *, int);
 
 /* Alist of all buffer names vs the buffers.  This used to be
    a Lisp-visible variable, but is no longer, to prevent lossage
@@ -505,7 +503,7 @@ See also `find-buffer-visiting'.  */)
   handler = Ffind_file_name_handler (filename, Qget_file_buffer);
   if (!NILP (handler))
     {
-      Lisp_Object handled_buf = call2 (handler, Qget_file_buffer,
+      Lisp_Object handled_buf = calln (handler, Qget_file_buffer,
 				       filename);
       return BUFFERP (handled_buf) ? handled_buf : Qnil;
     }
@@ -560,7 +558,7 @@ run_buffer_list_update_hook (struct buffer *buf)
 {
   eassert (buf);
   if (! (NILP (Vrun_hooks) || buf->inhibit_buffer_hooks))
-    call1 (Vrun_hooks, Qbuffer_list_update_hook);
+    calln (Vrun_hooks, Qbuffer_list_update_hook);
 }
 
 DEFUN ("get-buffer-create", Fget_buffer_create, Sget_buffer_create, 1, 2, 0,
@@ -1112,10 +1110,11 @@ reset_buffer (register struct buffer *b)
    Instead, use Fkill_all_local_variables.
 
    If PERMANENT_TOO, reset permanent buffer-local variables.
-   If not, preserve those.  */
+   If not, preserve those.  PERMANENT_TOO = 2 means ignore
+   the permanent-local property of non-builtin variables.  */
 
 static void
-reset_buffer_local_variables (struct buffer *b, bool permanent_too)
+reset_buffer_local_variables (struct buffer *b, int permanent_too)
 {
   int offset, i;
 
@@ -1141,7 +1140,7 @@ reset_buffer_local_variables (struct buffer *b, bool permanent_too)
   bset_invisibility_spec (b, Qt);
 
   /* Reset all (or most) per-buffer variables to their defaults.  */
-  if (permanent_too)
+  if (permanent_too == 1)
     bset_local_var_alist (b, Qnil);
   else
     {
@@ -1170,7 +1169,7 @@ reset_buffer_local_variables (struct buffer *b, bool permanent_too)
 	      swap_in_global_binding (XSYMBOL (sym));
 	    }
 
-          if (!NILP (prop))
+          if (!NILP (prop) && !permanent_too)
             {
               /* If permanent-local, keep it.  */
               last = tmp;
@@ -1358,7 +1357,7 @@ buffer_local_value (Lisp_Object variable, Lisp_Object buffer)
     case SYMBOL_LOCALIZED:
       { /* Look in local_var_alist.  */
 	struct Lisp_Buffer_Local_Value *blv = SYMBOL_BLV (sym);
-	XSETSYMBOL (variable, sym); /* Update In case of aliasing.  */
+	XSETSYMBOL (variable, sym); /* Update in case of aliasing.  */
 	result = assq_no_quit (variable, BVAR (buf, local_var_alist));
 	if (!NILP (result))
 	  {
@@ -1708,8 +1707,7 @@ This does not change the name of the visited file (if any).  */)
 
   run_buffer_list_update_hook (current_buffer);
 
-  call2 (Quniquify__rename_buffer_advice,
-         requestedname, unique);
+  calln (Quniquify__rename_buffer_advice, requestedname, unique);
 
   /* Refetch since that last call may have done GC.  */
   return BVAR (current_buffer, name);
@@ -1731,7 +1729,8 @@ Buffers not visible in windows are preferred to visible buffers, unless
 optional second argument VISIBLE-OK is non-nil.  Ignore the argument
 BUFFER unless it denotes a live buffer.  If the optional third argument
 FRAME specifies a live frame, then use that frame's buffer list instead
-of the selected frame's buffer list.
+of the selected frame's buffer list.  Do not return a hidden buffer --
+a buffer whose name starts with a space.
 
 The buffer is found by scanning the selected or specified frame's buffer
 list first, followed by the list of all buffers.  If no other buffer
@@ -1749,7 +1748,7 @@ exists, return the buffer `*scratch*' (creating it if necessary).  */)
       if (candidate_buffer (buf, buffer)
 	  /* If the frame has a buffer_predicate, disregard buffers that
 	     don't fit the predicate.  */
-	  && (NILP (pred) || !NILP (call1 (pred, buf))))
+	  && (NILP (pred) || !NILP (calln (pred, buf))))
 	{
 	  if (!NILP (visible_ok)
 	      || NILP (Fget_buffer_window (buf, Qvisible)))
@@ -1765,7 +1764,7 @@ exists, return the buffer `*scratch*' (creating it if necessary).  */)
       if (candidate_buffer (buf, buffer)
 	  /* If the frame has a buffer_predicate, disregard buffers that
 	     don't fit the predicate.  */
-	  && (NILP (pred) || !NILP (call1 (pred, buf))))
+	  && (NILP (pred) || !NILP (calln (pred, buf))))
 	{
 	  if (!NILP (visible_ok)
 	      || NILP (Fget_buffer_window (buf, Qvisible)))
@@ -1936,7 +1935,7 @@ cleaning up all windows currently displaying the buffer to be killed. */)
       {
 	/* Ask whether to kill the buffer, and exit if the user says
 	   "no".  */
-	if (NILP (call1 (Qkill_buffer__possibly_save, buffer)))
+	if (NILP (calln (Qkill_buffer__possibly_save, buffer)))
 	  return unbind_to (count, Qnil);
 	/* Recheck modified.  */
 	modified = BUF_MODIFF (b) > BUF_SAVE_MODIFF (b);
@@ -2012,6 +2011,13 @@ cleaning up all windows currently displaying the buffer to be killed. */)
      buffer (bug#10114).  */
   replace_buffer_in_windows (buffer);
 
+  /* For dead windows that have not been collected yet, remove this
+     buffer from those windows' lists of previously and next shown
+     buffers and remove any 'quit-restore' or 'quit-restore-prev'
+     parameters mentioning the buffer.  */
+  if (XFIXNUM (BVAR (b, display_count)) > 0)
+    window_discard_buffer_from_dead_windows (buffer);
+
   /* Exit if replacing the buffer in windows has killed our buffer.  */
   if (!BUFFER_LIVE_P (b))
     return Qt;
@@ -2029,7 +2035,7 @@ cleaning up all windows currently displaying the buffer to be killed. */)
   /* If the buffer now current is shown in the minibuffer and our buffer
      is the sole other buffer give up.  */
   XSETBUFFER (tem, current_buffer);
-  if (EQ (tem, XWINDOW (minibuf_window)->contents)
+  if (BASE_EQ (tem, XWINDOW (minibuf_window)->contents)
       && BASE_EQ (buffer, Fother_buffer (buffer, Qnil, Qnil)))
     return Qnil;
 
@@ -3001,7 +3007,7 @@ the normal hook `change-major-mode-hook'.  */)
 
   /* Actually eliminate all local bindings of this buffer.  */
 
-  reset_buffer_local_variables (current_buffer, !NILP (kill_permanent));
+  reset_buffer_local_variables (current_buffer, !NILP (kill_permanent) ? 2 : 0);
 
   /* Force mode-line redisplay.  Useful here because all major mode
      commands call this function.  */
@@ -3168,7 +3174,7 @@ mouse_face_overlay_overlaps (Lisp_Object overlay)
     {
       if (node->begin < end && node->end > start
           && node->begin < node->end
-          && !EQ (node->data, overlay)
+          && !BASE_EQ (node->data, overlay)
           && (tem = Foverlay_get (overlay, Qmouse_face),
 	      !NILP (tem)))
 	return true;
@@ -3231,7 +3237,7 @@ compare_overlays (const void *v1, const void *v2)
     return s2->end < s1->end ? -1 : 1;
   else if (s1->spriority != s2->spriority)
     return (s1->spriority < s2->spriority ? -1 : 1);
-  else if (EQ (s1->overlay, s2->overlay))
+  else if (BASE_EQ (s1->overlay, s2->overlay))
     return 0;
   else
     /* Avoid the non-determinism of qsort by choosing an arbitrary ordering
@@ -4083,7 +4089,7 @@ report_overlay_modification (Lisp_Object start, Lisp_Object end, bool after,
 			     Lisp_Object arg1, Lisp_Object arg2, Lisp_Object arg3)
 {
   /* True if this change is an insertion.  */
-  bool insertion = (after ? XFIXNAT (arg3) == 0 : EQ (start, end));
+  bool insertion = (after ? XFIXNAT (arg3) == 0 : BASE_EQ (start, end));
 
   /* We used to run the functions as soon as we found them and only register
      them in last_overlay_modification_hooks for the purpose of the `after'
@@ -4174,9 +4180,9 @@ call_overlay_mod_hooks (Lisp_Object list, Lisp_Object overlay, bool after,
   while (CONSP (list))
     {
       if (NILP (arg3))
-	call4 (XCAR (list), overlay, after ? Qt : Qnil, arg1, arg2);
+	calln (XCAR (list), overlay, after ? Qt : Qnil, arg1, arg2);
       else
-	call5 (XCAR (list), overlay, after ? Qt : Qnil, arg1, arg2, arg3);
+	calln (XCAR (list), overlay, after ? Qt : Qnil, arg1, arg2, arg3);
       list = XCDR (list);
     }
 }
@@ -4782,8 +4788,8 @@ init_buffer_once (void)
   set_buffer_intervals (&buffer_defaults, NULL);
   set_buffer_intervals (&buffer_local_symbols, NULL);
   /* This is not strictly necessary, but let's make them initialized.  */
-  bset_name (&buffer_defaults, build_pure_c_string (" *buffer-defaults*"));
-  bset_name (&buffer_local_symbols, build_pure_c_string (" *buffer-local-symbols*"));
+  bset_name (&buffer_defaults, build_string (" *buffer-defaults*"));
+  bset_name (&buffer_local_symbols, build_string (" *buffer-local-symbols*"));
   BUFFER_PVEC_INIT (&buffer_defaults);
   BUFFER_PVEC_INIT (&buffer_local_symbols);
 
@@ -4791,7 +4797,7 @@ init_buffer_once (void)
   /* Must do these before making the first buffer! */
 
   /* real setup is done in bindings.el */
-  bset_mode_line_format (&buffer_defaults, build_pure_c_string ("%-"));
+  bset_mode_line_format (&buffer_defaults, build_string ("%-"));
   bset_header_line_format (&buffer_defaults, Qnil);
   bset_tab_line_format (&buffer_defaults, Qnil);
   bset_abbrev_mode (&buffer_defaults, Qnil);
@@ -4853,13 +4859,13 @@ init_buffer_once (void)
      The local flag bits are in the local_var_flags slot of the buffer.  */
 
   /* Nothing can work if this isn't true.  */
-  { verify (sizeof (EMACS_INT) == word_size); }
+  { static_assert (sizeof (EMACS_INT) == word_size); }
 
   Vbuffer_alist = Qnil;
   current_buffer = 0;
   pdumper_remember_lv_ptr_raw (&current_buffer, Lisp_Vectorlike);
 
-  QSFundamental = build_pure_c_string ("Fundamental");
+  QSFundamental = build_string ("Fundamental");
 
   DEFSYM (Qfundamental_mode, "fundamental-mode");
   bset_major_mode (&buffer_defaults, Qfundamental_mode);
@@ -4873,10 +4879,10 @@ init_buffer_once (void)
 
   /* Super-magic invisible buffer.  */
   Vprin1_to_string_buffer =
-    Fget_buffer_create (build_pure_c_string (" prin1"), Qt);
+    Fget_buffer_create (build_string (" prin1"), Qt);
   Vbuffer_alist = Qnil;
 
-  Fset_buffer (Fget_buffer_create (build_pure_c_string ("*scratch*"), Qnil));
+  Fset_buffer (Fget_buffer_create (build_string ("*scratch*"), Qnil));
 
   inhibit_modification_hooks = 0;
 }
@@ -4885,47 +4891,6 @@ void
 init_buffer (void)
 {
   Lisp_Object temp;
-
-#ifdef USE_MMAP_FOR_BUFFERS
-  if (dumped_with_unexec_p ())
-    {
-      Lisp_Object tail, buffer;
-
-#ifndef WINDOWSNT
-      /* These must be reset in the dumped Emacs, to avoid stale
-	 references to mmap'ed memory from before the dump.
-
-	 WINDOWSNT doesn't need this because it doesn't track mmap'ed
-	 regions by hand (see w32heap.c, which uses system APIs for
-	 that purpose), and thus doesn't use mmap_regions.  */
-      mmap_regions = NULL;
-      mmap_fd = -1;
-#endif
-
-      /* The dumped buffers reference addresses of buffer text
-	 recorded by temacs, that cannot be used by the dumped Emacs.
-	 We map new memory for their text here.
-
-	 Implementation notes: the buffers we carry from temacs are:
-	 " prin1", "*scratch*", " *Minibuf-0*", "*Messages*", and
-	 " *code-conversion-work*".  They are created by
-	 init_buffer_once and init_window_once (which are not called
-	 in the dumped Emacs), and by the first call to coding.c
-	 routines.  Since FOR_EACH_LIVE_BUFFER only walks the buffers
-	 in Vbuffer_alist, any buffer we carry from temacs that is
-	 not in the alist (a.k.a. "magic invisible buffers") should
-	 be handled here explicitly.  */
-      FOR_EACH_LIVE_BUFFER (tail, buffer)
-        {
-	  struct buffer *b = XBUFFER (buffer);
-	  b->text->beg = NULL;
-	  enlarge_buffer_text (b, 0);
-	}
-      /* The " prin1" buffer is not in Vbuffer_alist.  */
-      XBUFFER (Vprin1_to_string_buffer)->text->beg = NULL;
-      enlarge_buffer_text (XBUFFER (Vprin1_to_string_buffer), 0);
-    }
-#endif /* USE_MMAP_FOR_BUFFERS */
 
   AUTO_STRING (scratch, "*scratch*");
   Fset_buffer (Fget_buffer_create (scratch, Qnil));
@@ -5018,19 +4983,18 @@ defvar_per_buffer (struct Lisp_Buffer_Objfwd *bo_fwd, const char *namestring,
 static Lisp_Object
 make_lispy_itree_node (const struct itree_node *node)
 {
-  return listn (12,
-                intern (":begin"),
-                make_fixnum (node->begin),
-                intern (":end"),
-                make_fixnum (node->end),
-                intern (":limit"),
-                make_fixnum (node->limit),
-                intern (":offset"),
-                make_fixnum (node->offset),
-                intern (":rear-advance"),
-                node->rear_advance ? Qt : Qnil,
-                intern (":front-advance"),
-                node->front_advance ? Qt : Qnil);
+  return list (intern (":begin"),
+	       make_fixnum (node->begin),
+	       intern (":end"),
+	       make_fixnum (node->end),
+	       intern (":limit"),
+	       make_fixnum (node->limit),
+	       intern (":offset"),
+	       make_fixnum (node->offset),
+	       intern (":rear-advance"),
+	       node->rear_advance ? Qt : Qnil,
+	       intern (":front-advance"),
+	       node->front_advance ? Qt : Qnil);
 }
 
 static Lisp_Object
@@ -5101,9 +5065,9 @@ syms_of_buffer (void)
 	       Qoverwrite_mode_binary));
 
   Fput (Qprotected_field, Qerror_conditions,
-	pure_list (Qprotected_field, Qerror));
+	list (Qprotected_field, Qerror));
   Fput (Qprotected_field, Qerror_message,
-	build_pure_c_string ("Attempt to modify a protected field"));
+	build_string ("Attempt to modify a protected field"));
 
   DEFSYM (Qclone_indirect_buffer_hook, "clone-indirect-buffer-hook");
 
@@ -5183,7 +5147,7 @@ A string is printed verbatim in the mode line except for %-constructs:
   %P -- print percent of buffer above bottom of window, perhaps plus Top,
         or print Bottom or All.
   %q -- print percent of buffer above both the top and the bottom of the
-        window, separated by ‘-’, or ‘All’.
+        window, separated by `-', or `All'.
   %s -- print process status.
   %z -- print mnemonics of keyboard, terminal, and buffer coding systems.
   %Z -- like %z, but including the end-of-line format.

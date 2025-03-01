@@ -1,6 +1,6 @@
 ;;; em-prompt.el --- command prompts  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1999-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2025 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -119,6 +119,19 @@ arriving, or after."
     (add-hook 'eshell-post-command-hook 'eshell-emit-prompt nil t)
     (eshell-prompt-mode)))
 
+(defun eshell--append-text-property (start end prop value &optional object)
+  "Append to a text property from START to END.
+PROP is the text property to append to, and VALUE is the list of
+property values to append.  OBJECT is the object to propertize, as with
+`put-text-property' (which see)."
+  (let (next)
+    (while (< start end)
+      (setq next (next-single-property-change start prop object end))
+      (put-text-property start next prop
+                         (append (get-text-property start prop object) value)
+                         object)
+      (setq start next))))
+
 (defun eshell-emit-prompt ()
   "Emit a prompt if eshell is being used interactively."
   (when (boundp 'ansi-color-context-region)
@@ -126,19 +139,16 @@ arriving, or after."
   (run-hooks 'eshell-before-prompt-hook)
   (if (not eshell-prompt-function)
       (set-marker eshell-last-output-end (point))
-    (let ((prompt (funcall eshell-prompt-function)))
-      (add-text-properties
-       0 (length prompt)
-       (if eshell-highlight-prompt
-           '( read-only t
-              field prompt
-              font-lock-face eshell-prompt
-              front-sticky (read-only field font-lock-face)
-              rear-nonsticky (read-only field font-lock-face))
-         '( field prompt
-            front-sticky (field)
-            rear-nonsticky (field)))
-       prompt)
+    (let* ((prompt (funcall eshell-prompt-function))
+           (len (length prompt))
+           (sticky-props '(field)))
+      (put-text-property 0 len 'field 'prompt prompt)
+      (when eshell-highlight-prompt
+        (add-text-properties
+         0 len '(read-only t font-lock-face eshell-prompt) prompt)
+        (setq sticky-props `(read-only font-lock-face . ,sticky-props)))
+      (eshell--append-text-property 0 len 'front-sticky sticky-props prompt)
+      (eshell--append-text-property 0 len 'rear-nonsticky sticky-props prompt)
       (eshell-interactive-filter nil prompt)))
   (run-hooks 'eshell-after-prompt-hook))
 
@@ -167,17 +177,39 @@ negative, find the Nth next match."
 
 (defun eshell-forward-paragraph (&optional n)
   "Move to the beginning of the Nth next prompt in the buffer.
-Like `forward-paragraph', but navigates using fields."
+Like `forward-paragraph', but also stops at the beginning of each prompt."
   (interactive "p")
-  (eshell-next-prompt n)
-  (goto-char (field-beginning (point) t)))
+  (unless n (setq n 1))
+  (let (;; We'll handle the "paragraph" starts ourselves.
+        (paragraph-start regexp-unmatchable)
+        (inhibit-field-text-motion t))
+    (cond
+     ((> n 0)
+      (while (and (> n 0) (< (point) (point-max)))
+        (let ((next-paragraph (save-excursion (forward-paragraph) (point)))
+              (next-prompt (save-excursion
+                             (if-let* ((match (text-property-search-forward
+                                               'field 'prompt t t)))
+                                 (prop-match-beginning match)
+                               (point-max)))))
+          (goto-char (min next-paragraph next-prompt)))
+        (setq n (1- n))))
+     ((< n 0)
+      (while (and (< n 0) (> (point) (point-min)))
+        (let ((prev-paragraph (save-excursion (backward-paragraph) (point)))
+              (prev-prompt (save-excursion
+                             (if (text-property-search-backward
+                                  'field 'prompt t)
+                                 (point)
+                               (point-min)))))
+          (goto-char (max prev-paragraph prev-prompt)))
+        (setq n (1+ n)))))))
 
 (defun eshell-backward-paragraph (&optional n)
   "Move to the beginning of the Nth previous prompt in the buffer.
 Like `backward-paragraph', but navigates using fields."
   (interactive "p")
-  (eshell-previous-prompt n)
-  (goto-char (field-beginning (point) t)))
+  (eshell-forward-paragraph (- (or n 1))))
 
 (defun eshell-next-prompt (&optional n)
   "Move to end of Nth next prompt in the buffer."
@@ -190,7 +222,7 @@ Like `backward-paragraph', but navigates using fields."
   (pcase (get-text-property (point) 'field)
     ('command-output)
     ('prompt (goto-char (field-end)))
-    (_ (when-let ((match (text-property-search-backward 'field 'prompt t)))
+    (_ (when-let* ((match (text-property-search-backward 'field 'prompt t)))
          (goto-char (prop-match-end match)))))
   ;; Now, move forward/backward to our destination prompt.
   (if (natnump n)

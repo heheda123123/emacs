@@ -1,6 +1,6 @@
 ;;; ls-lisp.el --- emulate insert-directory completely in Emacs Lisp  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1992, 1994, 2000-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1994, 2000-2025 Free Software Foundation, Inc.
 
 ;; Author: Sebastian Kremer <sk@thp.uni-koeln.de>
 ;; Modified by: Francis J. Wright <F.J.Wright@maths.qmw.ac.uk>
@@ -70,7 +70,10 @@
 (defun ls-lisp-set-options ()
   "Reset the ls-lisp options that depend on `ls-lisp-emulation'."
   (mapc 'custom-reevaluate-setting
-	'(ls-lisp-ignore-case ls-lisp-dirs-first ls-lisp-verbosity)))
+        '(ls-lisp-ignore-case
+          ls-lisp-dirs-first
+          ls-lisp-verbosity
+          ls-lisp-use-string-collate)))
 
 (defcustom ls-lisp-emulation
   (cond ;; ((eq system-type 'windows-nt) 'MS-Windows)

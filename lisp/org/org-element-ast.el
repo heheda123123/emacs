@@ -1,6 +1,6 @@
 ;;; org-element-ast.el --- Abstract syntax tree for Org  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
 ;; Author: Ihor Radchenko <yantar92 at posteo dot net>
 ;; Keywords: data, lisp
@@ -231,7 +231,7 @@ when NODE is an anonymous node."
 
 (define-inline org-element-type-p (node types)
   "Return non-nil when NODE type is one of TYPES.
-      TYPES can be a type symbol or a list of symbols."
+TYPES can be a type symbol or a list of symbols."
   (inline-letevals (node types)
     (if (listp (inline-const-val types))
 	(inline-quote (memq (org-element-type ,node t) ,types))
@@ -270,7 +270,7 @@ Return value is the containing property name, as a keyword, or nil."
   "Dynamically computed value.
 
 The value can be obtained by calling FUNCTION with containing syntax
-node as first argument and ARGS list as remainting arguments.
+node as first argument and ARGS list as remaining arguments.
 
 If the function throws `:org-element-deferred-retry' signal, assume
 that the syntax node has been modified by side effect and retry
@@ -410,7 +410,7 @@ If PROPERTY is not present, return DFLT."
     (let ((idx (org-element--property-idx (inline-const-val property))))
       (inline-quote
        (let ((idx (or ,idx (org-element--property-idx ,property))))
-         (if-let ((parray (and idx (org-element--parray ,node))))
+         (if-let* ((parray (and idx (org-element--parray ,node))))
              (pcase (aref parray idx)
                (`org-element-ast--nil ,dflt)
                (val val))
@@ -456,7 +456,7 @@ Return modified NODE."
         (inline-quote
          (let ((idx (org-element--property-idx ,property)))
            (if (and idx (not (org-element-type-p ,node 'plain-text)))
-               (when-let
+               (when-let*
                    ((parray
                      (or (org-element--parray ,node)
                          (org-element--put-parray ,node))))
@@ -731,10 +731,10 @@ a newly created one.
 When TYPE is `plain-text', CHILDREN must contain a single node -
 string.  Alternatively, TYPE can be a string.  When TYPE is nil or
 `anonymous', PROPS must be nil."
-  (cl-assert
-   ;; FIXME: Just use `plistp' from Emacs 29 when available.
-   (let ((len (proper-list-p props)))
-     (and len (zerop (% len 2)))))
+  (cl-assert (if (fboundp 'plistp) ; Emacs 29.1
+                 (plistp props)
+               (let ((len (proper-list-p props)))
+                 (and len (cl-evenp len)))))
   ;; Assign parray.
   (when (and props (not (stringp type)) (not (eq type 'plain-text)))
     (let ((node (list 'dummy props)))
@@ -796,7 +796,7 @@ When DATUM is `plain-text', all the properties are removed."
     (type
      (let ((node-copy (append (list type (copy-sequence (cadr datum))) (copy-sequence (cddr datum)))))
        ;; Copy `:standard-properties'
-       (when-let ((parray (org-element-property-raw :standard-properties node-copy)))
+       (when-let* ((parray (org-element-property-raw :standard-properties node-copy)))
          (org-element-put-property node-copy :standard-properties (copy-sequence parray)))
        ;; Clear `:parent'.
        (org-element-put-property node-copy :parent nil)
@@ -810,7 +810,7 @@ When DATUM is `plain-text', all the properties are removed."
        ;; properties.  So, we need to reassign inner `:parent'
        ;; properties to the DATUM copy explicitly.
        (dolist (secondary-prop (org-element-property :secondary node-copy))
-         (when-let ((secondary-value (org-element-property secondary-prop node-copy)))
+         (when-let* ((secondary-value (org-element-property secondary-prop node-copy)))
            (setq secondary-value (org-element-copy secondary-value t))
            (if (org-element-type secondary-value)
                (org-element-put-property secondary-value :parent node-copy)

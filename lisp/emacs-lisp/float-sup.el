@@ -1,6 +1,6 @@
 ;;; float-sup.el --- define some constants useful for floating point numbers.  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1985-1987, 2001-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1985-1987, 2001-2025 Free Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: internal
@@ -25,7 +25,6 @@
 
 ;;; Code:
 
-;; Provide an easy hook to tell if we are running with floats or not.
 ;; Define pi and e via math-lib calls (much less prone to killer typos).
 (defconst float-pi (* 4 (atan 1)) "The value of Pi (3.1415926...).")
 (with-suppressed-warnings ((lexical pi))

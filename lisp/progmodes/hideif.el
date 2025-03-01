@@ -1,6 +1,6 @@
 ;;; hideif.el --- hides selected code within ifdef  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1988, 1994, 2001-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 1994, 2001-2025 Free Software Foundation, Inc.
 
 ;; Author: Brian Marick
 ;;	Daniel LaLiberte <liberte@holonexus.org>
@@ -400,7 +400,7 @@ If there is a marked region from START to END it only shows the symbols within."
     (end-of-line 2)))
 
 (defun hif-merge-ifdef-region (start end)
-  "This function merges nearby ifdef regions to form a bigger overlay.
+  "Merge nearby ifdef regions to form a bigger overlay.
 The region is defined by START and END.  This will decrease the number of
 overlays created."
   ;; Generally there is no need to call itself recursively since there should
@@ -875,7 +875,7 @@ Assuming we've just performed a `hif-token-regexp' lookup."
   (setq end (or end (point)))
   (while (and (> (1- end) 1)
               (hif-is-white (char-after (1- end))))
-     (cl-decf end))
+     (decf end))
   (let ((p0 end)
         p cmt ce ws we ;; ce:comment start, ws:white start, we whilte end
         cmtlist) ;; pair of (start.end) of comments
@@ -888,7 +888,7 @@ Assuming we've just performed a `hif-token-regexp' lookup."
                 ;; merge whites immediately ahead
                 (setq ce (if (and we (= (1- p) we)) ws p))
                 ;; scan for end of line
-                (while (and (< (cl-incf p) end)
+                (while (and (< (incf p) end)
                             (not (char-equal ?\n (char-after p)))
                             (not (char-equal ?\r (char-after p)))))
                 ;; Merge with previous comment if immediately followed
@@ -913,7 +913,7 @@ Assuming we've just performed a `hif-token-regexp' lookup."
                 (while (< (1+ p) end)
                   (if (not (and (char-equal ?* (char-after p))
                                 (char-equal ?/ (char-after (1+ p)))))
-                      (cl-incf p)
+                      (incf p)
                     ;; found `*/', mark end pos
                     (push (cons cmt (1+ (setq p (1+ p)))) cmtlist)
                     (throw 'break nil)))
@@ -927,7 +927,7 @@ Assuming we've just performed a `hif-token-regexp' lookup."
                     we p))
           (setq ws nil
                 we nil)))
-      (cl-incf p))
+      (incf p))
     ;; Goto beginning of the last comment, if we're within
     (setq cmt (car cmtlist)) ;; last cmt
     (setq cmt (if (and cmt
@@ -938,7 +938,7 @@ Assuming we've just performed a `hif-token-regexp' lookup."
     ;; Ignore leading whites ahead of comment
     (while (and (> (1- cmt) 1)
                 (hif-is-white (char-after (1- cmt))))
-       (cl-decf cmt))
+       (decf cmt))
     (goto-char cmt)))
 
 (defun hif-tokenize (start end)
@@ -1531,7 +1531,7 @@ and `+='...)."
 
 (defvar hif-__COUNTER__ 0)
 (defun hif-__COUNTER__ ()
-  (prog1 hif-__COUNTER__ (cl-incf hif-__COUNTER__)))
+  (prog1 hif-__COUNTER__ (incf hif-__COUNTER__)))
 
 (defun hif-__cplusplus ()
   (and (string-match
@@ -1604,7 +1604,7 @@ and `+='...)."
               (push tk items) ; first item, in reverse order
               (setq tk 'hif-token-concat))
             (while (eq tk 'hif-token-concat)
-              (cl-incf count)
+              (incf count)
               ;; 2+ item
               (setq l (cdr l)
                     tk (car l))
@@ -2407,7 +2407,7 @@ first arg will be `hif-etc'."
                       'c99 t)))
        ((eq token 'hif-comma)
         (if etc
-            (error "Syntax error: no comma allowed after `...'.")))
+            (error "Syntax error: no comma allowed after `...'")))
        (t
         (push token result))))
     (setq result (nreverse result))
@@ -2477,7 +2477,7 @@ first arg will be `hif-etc'."
                          (tokens
                           (and name
                                (prog1 t
-                                 (cl-incf hif-verbose-define-count)
+                                 (incf hif-verbose-define-count)
                                  ;; only show 1/50 to not slow down to much
                                  (if (and hide-ifdef-verbose
                                           (= (% hif-verbose-define-count 50) 1))

@@ -1,6 +1,6 @@
 /* xfaces.c -- "Face" primitives.
 
-Copyright (C) 1993-1994, 1998-2024 Free Software Foundation, Inc.
+Copyright (C) 1993-1994, 1998-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -634,6 +634,37 @@ x_free_gc (struct frame *f, struct android_gc *gc)
 			   Frames and faces
  ***********************************************************************/
 
+#ifdef HAVE_WINDOW_SYSTEM
+
+/* Find an existing image cache registered for a frame on F's display
+   and with a `scaling_col_width' of F's FRAME_COLUMN_WIDTH, or, in the
+   absence of an eligible image cache, allocate an image cache with the
+   same width value.  */
+
+struct image_cache *
+share_image_cache (struct frame *f)
+{
+  int width = max (10, FRAME_COLUMN_WIDTH (f));
+  Lisp_Object tail, frame;
+  struct image_cache *cache;
+
+  FOR_EACH_FRAME (tail, frame)
+    {
+      struct frame *x = XFRAME (frame);
+
+      if (FRAME_TERMINAL (x) == FRAME_TERMINAL (f)
+	  && FRAME_IMAGE_CACHE (x)
+	  && FRAME_IMAGE_CACHE (x)->scaling_col_width == width)
+	return FRAME_IMAGE_CACHE (x);
+    }
+
+  cache = make_image_cache ();
+  cache->scaling_col_width = width;
+  return cache;
+}
+
+#endif /* HAVE_WINDOW_SYSTEM */
+
 /* Initialize face cache and basic faces for frame F.  */
 
 void
@@ -644,14 +675,10 @@ init_frame_faces (struct frame *f)
     FRAME_FACE_CACHE (f) = make_face_cache (f);
 
 #ifdef HAVE_WINDOW_SYSTEM
-  /* Make the image cache.  */
+  /* Make or share an image cache.  */
   if (FRAME_WINDOW_P (f))
     {
-      /* We initialize the image cache when creating the first frame
-	 on a terminal, and not during terminal creation.  This way,
-	 `x-open-connection' on a tty won't create an image cache.  */
-      if (FRAME_IMAGE_CACHE (f) == NULL)
-	FRAME_IMAGE_CACHE (f) = make_image_cache ();
+      FRAME_IMAGE_CACHE (f) = share_image_cache (f);
       ++FRAME_IMAGE_CACHE (f)->refcount;
     }
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -669,7 +696,6 @@ void
 free_frame_faces (struct frame *f)
 {
   struct face_cache *face_cache = FRAME_FACE_CACHE (f);
-
   if (face_cache)
     {
       free_face_cache (face_cache);
@@ -685,6 +711,11 @@ free_frame_faces (struct frame *f)
 	  --image_cache->refcount;
 	  if (image_cache->refcount == 0)
 	    free_image_cache (f);
+
+	  /* The `image_cache' field must be emptied, in case references
+	     to this dead frame should remain and be scanned by GC.
+	     (bug#71929) */
+	  FRAME_IMAGE_CACHE (f) = NULL;
 	}
     }
 #endif /* HAVE_WINDOW_SYSTEM */
@@ -701,9 +732,18 @@ recompute_basic_faces (struct frame *f)
 {
   if (FRAME_FACE_CACHE (f))
     {
+      bool non_basic_faces_cached =
+	FRAME_FACE_CACHE (f)->used > BASIC_FACE_ID_SENTINEL;
       clear_face_cache (false);
       if (!realize_basic_faces (f))
 	emacs_abort ();
+      /* The call to realize_basic_faces above recomputed the basic
+         faces and freed their fontsets, but if there are non-ASCII
+         faces in the cache, they might now be invalid, and they
+         reference fontsets that are no longer in Vfontset_table.  We
+         therefore must force complete regeneration of all frame faces.  */
+      if (non_basic_faces_cached)
+	f->face_change = true;
     }
 }
 
@@ -1047,7 +1087,7 @@ tty_lookup_color (struct frame *f, Lisp_Object color, Emacs_Color *tty_color,
 
   XSETFRAME (frame, f);
 
-  color_desc = call2 (Qtty_color_desc, color, frame);
+  color_desc = calln (Qtty_color_desc, color, frame);
   if (CONSP (color_desc) && CONSP (XCDR (color_desc)))
     {
       Lisp_Object rgb;
@@ -1076,7 +1116,7 @@ tty_lookup_color (struct frame *f, Lisp_Object color, Emacs_Color *tty_color,
 	      && !NILP (Ffboundp (Qtty_color_standard_values)))
 	    {
 	      /* Look up STD_COLOR separately.  */
-	      rgb = call1 (Qtty_color_standard_values, color);
+	      rgb = calln (Qtty_color_standard_values, color);
 	      if (! parse_rgb_list (rgb, std_color))
 		return false;
 	    }
@@ -1138,7 +1178,7 @@ tty_color_name (struct frame *f, int idx)
       Lisp_Object coldesc;
 
       XSETFRAME (frame, f);
-      coldesc = call2 (Qtty_color_by_index, make_fixnum (idx), frame);
+      coldesc = calln (Qtty_color_by_index, make_fixnum (idx), frame);
 
       if (!NILP (coldesc))
 	return XCAR (coldesc);
@@ -2472,6 +2512,9 @@ evaluate_face_filter (Lisp_Object filter, struct window *w,
     if (!NILP (filter))
       goto err;
 
+    if (NILP (Fget (parameter, QCfiltered)))
+      Fput (parameter, QCfiltered, Qt);
+
     bool match = false;
     if (w)
       {
@@ -2652,9 +2695,7 @@ merge_face_ref (struct window *w,
 		  Lisp_Object keyword = XCAR (face_ref_tem);
 		  Lisp_Object value = XCAR (XCDR (face_ref_tem));
 
-		  if (EQ (keyword, face_attr_sym[attr_filter])
-		      || (attr_filter == LFACE_INVERSE_INDEX
-			  && EQ (keyword, QCreverse_video)))
+		  if (EQ (keyword, face_attr_sym[attr_filter]))
 		    {
 		      attr_filter_seen = true;
 		      if (NILP (value))
@@ -2790,8 +2831,7 @@ merge_face_ref (struct window *w,
 		  else
 		    err = true;
 		}
-	      else if (EQ (keyword, QCinverse_video)
-		       || EQ (keyword, QCreverse_video))
+	      else if (EQ (keyword, QCinverse_video))
 		{
 		  if (EQ (value, Qt) || NILP (value))
 		    to[LFACE_INVERSE_INDEX] = value;
@@ -3420,8 +3460,7 @@ FRAME 0 means change the face on all frames, and change the default
       old_value = LFACE_BOX (lface);
       ASET (lface, LFACE_BOX_INDEX, value);
     }
-  else if (EQ (attr, QCinverse_video)
-	   || EQ (attr, QCreverse_video))
+  else if (EQ (attr, QCinverse_video))
     {
       if (!UNSPECIFIEDP (value)
 	  && !IGNORE_DEFFACE_P (value)
@@ -3788,7 +3827,7 @@ update_face_from_frame_parameter (struct frame *f, Lisp_Object param,
 	 mode, so that we have to load new defface specs.
 	 Call frame-set-background-mode to do that.  */
       XSETFRAME (frame, f);
-      call1 (Qframe_set_background_mode, frame);
+      calln (Qframe_set_background_mode, frame);
 
       face = Qdefault;
       lface = lface_from_face_name (f, face, true);
@@ -3939,8 +3978,7 @@ DEFUN ("internal-set-lisp-face-attribute-from-resource",
     value = face_boolean_x_resource_value (value, true);
   else if (EQ (attr, QCweight) || EQ (attr, QCslant) || EQ (attr, QCwidth))
     value = intern (SSDATA (value));
-  else if (EQ (attr, QCreverse_video)
-           || EQ (attr, QCinverse_video)
+  else if (EQ (attr, QCinverse_video)
            || EQ (attr, QCextend))
     value = face_boolean_x_resource_value (value, true);
   else if (EQ (attr, QCunderline)
@@ -4151,8 +4189,7 @@ frames).  If FRAME is omitted or nil, use the selected frame.  */)
     value = LFACE_STRIKE_THROUGH (lface);
   else if (EQ (keyword, QCbox))
     value = LFACE_BOX (lface);
-  else if (EQ (keyword, QCinverse_video)
-	   || EQ (keyword, QCreverse_video))
+  else if (EQ (keyword, QCinverse_video))
     value = LFACE_INVERSE (lface);
   else if (EQ (keyword, QCforeground))
     value = LFACE_FOREGROUND (lface);
@@ -4196,7 +4233,6 @@ Value is nil if ATTR doesn't have a discrete set of valid values.  */)
   if (EQ (attr, QCunderline) || EQ (attr, QCoverline)
       || EQ (attr, QCstrike_through)
       || EQ (attr, QCinverse_video)
-      || EQ (attr, QCreverse_video)
       || EQ (attr, QCextend))
     result = list2 (Qt, Qnil);
 
@@ -4389,7 +4425,8 @@ face_attr_equal_p (Lisp_Object v1, Lisp_Object v2)
 
       return memcmp (SDATA (v1), SDATA (v2), SBYTES (v1)) == 0;
 
-    case_Lisp_Int:
+    case Lisp_Int0:
+    case Lisp_Int1:
     case Lisp_Symbol:
       return false;
 
@@ -4572,8 +4609,8 @@ free_realized_face (struct frame *f, struct face *face)
 	  /* This function might be called with the frame's display
 	     connection deleted, in which event the callbacks below
 	     should not be executed, as they generate X requests.  */
-	  if (FRAME_X_DISPLAY (f))
-	    return;
+	  if (!FRAME_X_DISPLAY (f))
+	    goto free_face;
 #endif /* HAVE_X_WINDOWS */
 
 	  if (face->gc)
@@ -4592,6 +4629,9 @@ free_realized_face (struct frame *f, struct face *face)
 	}
 #endif /* HAVE_WINDOW_SYSTEM */
 
+#ifdef HAVE_X_WINDOWS
+    free_face:
+#endif /* HAVE_X_WINDOWS */
       xfree (face);
     }
 }
@@ -4711,7 +4751,7 @@ the triangle inequality.  */)
   if (NILP (metric))
     return make_fixnum (color_distance (&cdef1, &cdef2));
   else
-    return call2 (metric,
+    return calln (metric,
 		  list3i (cdef1.red, cdef1.green, cdef1.blue),
 		  list3i (cdef2.red, cdef2.green, cdef2.blue));
 }
@@ -5080,7 +5120,8 @@ lookup_basic_face (struct window *w, struct frame *f, int face_id)
     case DEFAULT_FACE_ID:		name = Qdefault;		break;
     case MODE_LINE_ACTIVE_FACE_ID:	name = Qmode_line_active;      	break;
     case MODE_LINE_INACTIVE_FACE_ID:	name = Qmode_line_inactive;	break;
-    case HEADER_LINE_FACE_ID:		name = Qheader_line;		break;
+    case HEADER_LINE_ACTIVE_FACE_ID:	name = Qheader_line_active;	break;
+    case HEADER_LINE_INACTIVE_FACE_ID:	name = Qheader_line_inactive;	break;
     case TAB_LINE_FACE_ID:		name = Qtab_line;		break;
     case TAB_BAR_FACE_ID:		name = Qtab_bar;		break;
     case TOOL_BAR_FACE_ID:		name = Qtool_bar;		break;
@@ -5106,10 +5147,19 @@ lookup_basic_face (struct window *w, struct frame *f, int face_id)
      for the very common no-remapping case.  */
   mapping = assq_no_quit (name, Vface_remapping_alist);
   if (NILP (mapping))
-    return face_id;		/* Give up.  */
+    {
+      Lisp_Object face_attrs[LFACE_VECTOR_SIZE];
 
-  /* If there is a remapping entry, lookup the face using NAME, which will
-     handle the remapping too.  */
+      /* If the face inherits from another, we need to realize it,
+         because the parent face could be remapped.  */
+      if (!get_lface_attributes (w, f, name, face_attrs, false, 0)
+	  || NILP (face_attrs[LFACE_INHERIT_INDEX])
+	  || UNSPECIFIEDP (face_attrs[LFACE_INHERIT_INDEX]))
+	return face_id;		/* Give up.  */
+    }
+
+  /* If there is a remapping entry, or the face inherits from another,
+     lookup the face using NAME, which will handle the remapping too.  */
   remapped_face_id = lookup_named_face (w, f, name, false);
   if (remapped_face_id < 0)
     return face_id;		/* Give up. */
@@ -5826,11 +5876,18 @@ realize_basic_faces (struct frame *f)
 
   if (realize_default_face (f))
     {
+      /* Basic faces must be realized disregarding face-remapping-alist,
+         since otherwise face-remapping might affect the basic faces in the
+         face cache, if this function happens to be invoked with current
+	 buffer set to a buffer with a non-nil face-remapping-alist.  */
+      specpdl_ref count = SPECPDL_INDEX ();
+      specbind (Qface_remapping_alist, Qnil);
       realize_named_face (f, Qmode_line_active, MODE_LINE_ACTIVE_FACE_ID);
       realize_named_face (f, Qmode_line_inactive, MODE_LINE_INACTIVE_FACE_ID);
       realize_named_face (f, Qtool_bar, TOOL_BAR_FACE_ID);
       realize_named_face (f, Qfringe, FRINGE_FACE_ID);
-      realize_named_face (f, Qheader_line, HEADER_LINE_FACE_ID);
+      realize_named_face (f, Qheader_line_active, HEADER_LINE_ACTIVE_FACE_ID);
+      realize_named_face (f, Qheader_line_inactive, HEADER_LINE_INACTIVE_FACE_ID);
       realize_named_face (f, Qscroll_bar, SCROLL_BAR_FACE_ID);
       realize_named_face (f, Qborder, BORDER_FACE_ID);
       realize_named_face (f, Qcursor, CURSOR_FACE_ID);
@@ -5846,6 +5903,7 @@ realize_basic_faces (struct frame *f)
       realize_named_face (f, Qchild_frame_border, CHILD_FRAME_BORDER_FACE_ID);
       realize_named_face (f, Qtab_bar, TAB_BAR_FACE_ID);
       realize_named_face (f, Qtab_line, TAB_LINE_FACE_ID);
+      unbind_to (count, Qnil);
 
       /* Reflect changes in the `menu' face in menu bars.  */
       if (FRAME_FACE_CACHE (f)->menu_face_changed_p)
@@ -6504,7 +6562,7 @@ map_tty_color (struct frame *f, struct face *face, Lisp_Object color,
   if (STRINGP (color)
       && SCHARS (color)
       && CONSP (Vtty_defined_color_alist)
-      && (def = assoc_no_quit (color, call1 (Qtty_color_alist, frame)),
+      && (def = assoc_no_quit (color, calln (Qtty_color_alist, frame)),
 	  CONSP (def)))
     {
       /* Associations in tty-defined-color-alist are of the form
@@ -7328,7 +7386,6 @@ syms_of_xfaces (void)
   DEFSYM (QCslant, ":slant");
   DEFSYM (QCunderline, ":underline");
   DEFSYM (QCinverse_video, ":inverse-video");
-  DEFSYM (QCreverse_video, ":reverse-video");
   DEFSYM (QCforeground, ":foreground");
   DEFSYM (QCbackground, ":background");
   DEFSYM (QCstipple, ":stipple");
@@ -7402,6 +7459,8 @@ syms_of_xfaces (void)
   DEFSYM (Qfringe, "fringe");
   DEFSYM (Qtab_line, "tab-line");
   DEFSYM (Qheader_line, "header-line");
+  DEFSYM (Qheader_line_inactive, "header-line-inactive");
+  DEFSYM (Qheader_line_active, "header-line-active");
   DEFSYM (Qscroll_bar, "scroll-bar");
   DEFSYM (Qmenu, "menu");
   DEFSYM (Qcursor, "cursor");
@@ -7478,14 +7537,14 @@ only for this purpose.  */);
     doc: /* Hash table of global face definitions (for internal use only.)  */);
   Vface_new_frame_defaults =
     /* 33 entries is enough to fit all basic faces */
-    make_hash_table (&hashtest_eq, 33, Weak_None, false);
+    make_hash_table (&hashtest_eq, 33, Weak_None);
 
   DEFVAR_LISP ("face-default-stipple", Vface_default_stipple,
     doc: /* Default stipple pattern used on monochrome displays.
 This stipple pattern is used on monochrome displays
 instead of shades of gray for a face background color.
 See `set-face-stipple' for possible values for this variable.  */);
-  Vface_default_stipple = build_pure_c_string ("gray3");
+  Vface_default_stipple = build_string ("gray3");
 
   DEFVAR_LISP ("tty-defined-color-alist", Vtty_defined_color_alist,
    doc: /* An alist of defined terminal colors and their RGB values.

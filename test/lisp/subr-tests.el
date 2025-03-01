@@ -1,6 +1,6 @@
 ;;; subr-tests.el --- Tests for subr.el  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2015-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2015-2025 Free Software Foundation, Inc.
 
 ;; Author: Oleh Krehel <ohwoeowho@gmail.com>,
 ;;         Nicolas Petton <nicolas@petton.fr>
@@ -27,7 +27,88 @@
 
 ;;; Code:
 (require 'ert)
+(require 'ert-x)
 (eval-when-compile (require 'cl-lib))
+
+(ert-deftest subr-test-apply-partially ()
+  (should (functionp (apply-partially #'identity)))
+  (should (functionp (apply-partially #'list 1 2 3)))
+  (should (equal (mapcar (apply-partially #'identity) '(9 cups of sugar))
+                 '(9 cups of sugar)))
+  (should (equal (mapcar (apply-partially #'eq 3) '(3 spoons of butter))
+                 '(t nil nil nil)))
+  (should (equal (funcall (apply-partially #'list 1 2 3) 4)
+                 '(1 2 3 4)))
+  (let* ((a 1) (b 2) (c 3)
+         (fun (apply-partially #'list a b c)))
+    (should (equal (funcall fun 4) '(1 2 3 4)))))
+
+(ert-deftest subr-test-zerop ()
+  (should (zerop 0))
+  (should (zerop 0.0))
+  (should (zerop -0))
+  (should (zerop -0.0))
+  (should-not (zerop -0.0e+NaN))
+  (should-not (zerop 0.0e+NaN))
+  (should-not (zerop float-pi))
+  (should-not (zerop 1.0e+INF))
+  (should-not (zerop (1+ (random most-positive-fixnum))))
+  (should-not (zerop (- (1- (random (- most-negative-fixnum))))))
+  (should-not (zerop (1+ most-positive-fixnum)))
+  (should-not (zerop (1- most-negative-fixnum)))
+  (should-error (zerop "-5") :type 'wrong-type-argument))
+
+(ert-deftest subr-test-plusp ()
+  (should-not (plusp -1.0e+INF))
+  (should-not (plusp -1.5e2))
+  (should-not (plusp -3.14))
+  (should-not (plusp -1))
+  (should-not (plusp -0.0))
+  (should-not (plusp 0))
+  (should-not (plusp 0.0))
+  (should-not (plusp -0.0e+NaN))
+  (should-not (plusp 0.0e+NaN))
+  (should (plusp 1))
+  (should (plusp 3.14))
+  (should (plusp 1.5e2))
+  (should (plusp 1.0e+INF))
+  (should-error (plusp "42") :type 'wrong-type-argument))
+
+(ert-deftest subr-test-minusp ()
+  (should (minusp -1.0e+INF))
+  (should (minusp -1.5e2))
+  (should (minusp -3.14))
+  (should (minusp -1))
+  (should-not (minusp -0.0))
+  (should-not (minusp 0))
+  (should-not (minusp 0.0))
+  (should-not (minusp -0.0e+NaN))
+  (should-not (minusp 0.0e+NaN))
+  (should-not (minusp 1))
+  (should-not (minusp 3.14))
+  (should-not (minusp 1.5e2))
+  (should-not (minusp 1.0e+INF))
+  (should-error (minusp "-42") :type 'wrong-type-argument))
+
+(ert-deftest subr-test-oddp ()
+  (should (oddp -3))
+  (should (oddp 3))
+  (should-not (oddp -2))
+  (should-not (oddp 0))
+  (should-not (oddp 2))
+  (should-error (oddp 3.0e+NaN) :type 'wrong-type-argument)
+  (should-error (oddp 3.0) :type 'wrong-type-argument)
+  (should-error (oddp "3") :type 'wrong-type-argument))
+
+(ert-deftest subr-test-evenp ()
+  (should (evenp -2))
+  (should (evenp 0))
+  (should (evenp 2))
+  (should-not (evenp -3))
+  (should-not (evenp 3))
+  (should-error (evenp 2.0e+NaN) :type 'wrong-type-argument)
+  (should-error (evenp 2.0) :type 'wrong-type-argument)
+  (should-error (evenp "2") :type 'wrong-type-argument))
 
 (ert-deftest let-when-compile ()
   ;; good case
@@ -454,7 +535,11 @@
                    x)))
     (should (= x 2)))
   (should (equal (macroexpand-all '(when a b c d))
-                 '(if a (progn b c d)))))
+                 '(if a (progn b c d))))
+  (with-suppressed-warnings ((empty-body when unless))
+    (should (equal (when t) nil))
+    (should (equal (unless t) nil))
+    (should (equal (unless nil) nil))))
 
 (ert-deftest subr-test-xor ()
   "Test `xor'."

@@ -1,6 +1,6 @@
 ;;; pascal.el --- major mode for editing pascal source in Emacs -*- lexical-binding: t -*-
 
-;; Copyright (C) 1993-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1993-2025 Free Software Foundation, Inc.
 
 ;; Author: Espen Skoglund <esk@gnu.org>
 ;; Keywords: languages
@@ -67,35 +67,34 @@
   "Abbrev table in use in Pascal mode buffers.")
 (define-abbrev-table 'pascal-mode-abbrev-table ())
 
-(defvar pascal-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map ";"        'electric-pascal-semi-or-dot)
-    (define-key map "."        'electric-pascal-semi-or-dot)
-    (define-key map ":"        'electric-pascal-colon)
-    (define-key map "="        'electric-pascal-equal)
-    (define-key map "#"        'electric-pascal-hash)
-    ;; These are user preferences, so not to set by default.
-    ;;(define-key map "\r"       'electric-pascal-terminate-line)
-    ;;(define-key map "\t"       'electric-pascal-tab)
-    (define-key map "\M-\t"    'completion-at-point)
-    (define-key map "\M-?"     'completion-help-at-point)
-    (define-key map "\177"     'backward-delete-char-untabify)
-    (define-key map "\M-\C-h"  'pascal-mark-defun)
-    (define-key map "\C-c\C-b" 'pascal-insert-block)
-    (define-key map "\M-*"     'pascal-star-comment)
-    (define-key map "\C-c\C-c" 'pascal-comment-area)
-    (define-key map "\C-c\C-u" 'pascal-uncomment-area)
-    (define-key map "\M-\C-a"  'pascal-beg-of-defun)
-    (define-key map "\M-\C-e"  'pascal-end-of-defun)
-    (define-key map "\C-c\C-d" 'pascal-goto-defun)
-    (define-key map "\C-c\C-o" 'pascal-outline-mode)
-    ;; A command to change the whole buffer won't be used terribly
-    ;; often, so no need for a key binding.
-    ;; (define-key map "\C-cd"    'pascal-downcase-keywords)
-    ;; (define-key map "\C-cu"    'pascal-upcase-keywords)
-    ;; (define-key map "\C-cc"    'pascal-capitalize-keywords)
-    map)
-  "Keymap used in Pascal mode.")
+(defvar-keymap pascal-mode-map
+  :doc "Keymap used in Pascal mode."
+  ";"       #'electric-pascal-semi-or-dot
+  "."       #'electric-pascal-semi-or-dot
+  ":"       #'electric-pascal-colon
+  "="       #'electric-pascal-equal
+  "#"       #'electric-pascal-hash
+  ;; These are user preferences, so not to set by default.
+  ;; "RET"     #'electric-pascal-terminate-line
+  ;; "TAB"     #'electric-pascal-tab
+  "C-M-i"   #'completion-at-point
+  "M-?"     #'completion-help-at-point
+  "DEL"     #'backward-delete-char-untabify
+  "C-M-h"   #'pascal-mark-defun
+  "C-c C-b" #'pascal-insert-block
+  "M-*"     #'pascal-star-comment
+  "C-c C-c" #'pascal-comment-area
+  "C-c C-u" #'pascal-uncomment-area
+  "C-M-a"   #'pascal-beg-of-defun
+  "C-M-e"   #'pascal-end-of-defun
+  "C-c C-d" #'pascal-goto-defun
+  "C-c C-o" #'pascal-outline-mode
+  ;; A command to change the whole buffer won't be used terribly
+  ;; often, so no need for a key binding.
+  ;; "C-c d"   #'pascal-downcase-keywords
+  ;; "C-c u"   #'pascal-upcase-keywords
+  ;; "C-c c"   #'pascal-capitalize-keywords
+  )
 
 (defvar pascal-imenu-generic-expression
   '((nil "^[ \t]*\\(function\\|procedure\\)[ \t\n]+\\([a-zA-Z0-9_.:]+\\)" 2))
@@ -297,7 +296,8 @@ are handled in another way, and should not be added to this list."
 
 ;;;###autoload
 (define-derived-mode pascal-mode prog-mode "Pascal"
-  "Major mode for editing Pascal code.\\<pascal-mode-map>
+  "Major mode for editing Pascal code.
+\\<pascal-mode-map>
 TAB indents for Pascal code.  Delete converts tabs to spaces as it moves back.
 
 \\[completion-at-point] completes the word around current point with respect \
@@ -333,7 +333,7 @@ Variables controlling indentation/edit style:
     regardless of where in the line point is when the TAB command is used.
  `pascal-auto-endcomments' (default t)
     Non-nil means a comment { ... } is set after the ends which ends cases and
-    functions. The name of the function or case will be set between the braces.
+    functions.  The name of the function or case will be set between the braces.
  `pascal-auto-lineup' (default t)
     List of contexts where auto lineup of :'s or ='s should be done.
 
@@ -496,7 +496,8 @@ This puts the mark at the end, and point at the beginning."
   (pascal-beg-of-defun))
 
 (defun pascal-comment-area (start end)
-  "Put the region into a Pascal comment.\\<pascal-mode-map>
+  "Put the region into a Pascal comment.
+\\<pascal-mode-map>
 The comments that are in this area are \"deformed\":
 `*)' becomes `!(*' and `}' becomes `!{'.
 These deformed comments are returned to normal if you use
@@ -1366,15 +1367,13 @@ The default is a name found in the buffer around point."
 ;;;
 ;;; Pascal-outline-mode
 ;;;
-(defvar pascal-outline-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "\M-\C-a"  'pascal-outline-prev-defun)
-    (define-key map "\M-\C-e"  'pascal-outline-next-defun)
-    (define-key map "\C-c\C-d" 'pascal-outline-goto-defun)
-    (define-key map "\C-c\C-s" 'pascal-show-all)
-    (define-key map "\C-c\C-h" 'pascal-hide-other-defuns)
-    map)
-  "Keymap used in Pascal Outline mode.")
+(defvar-keymap pascal-outline-map
+  :doc "Keymap used in Pascal Outline mode."
+  "C-M-a"   #'pascal-outline-prev-defun
+  "C-M-e"   #'pascal-outline-next-defun
+  "C-c C-d" #'pascal-outline-goto-defun
+  "C-c C-s" #'pascal-show-all
+  "C-c C-h" #'pascal-hide-other-defuns)
 
 (define-minor-mode pascal-outline-mode
   "Outline-line minor mode for Pascal mode.

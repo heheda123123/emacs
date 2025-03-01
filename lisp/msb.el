@@ -1,6 +1,6 @@
 ;;; msb.el --- customizable buffer-selection with multiple menus  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1993-1995, 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1993-1995, 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Lindberg <lars.lindberg@home.se>
 ;; Maintainer: emacs-devel@gnu.org
@@ -398,7 +398,7 @@ Optional second argument MAXBUF is completely ignored."
 		(buffer-name)))))
 
 (defun msb-dired-item-handler (_buffer &optional _maxbuf)
-  "Create one string item, concerning a dired BUFFER, for the buffer menu.
+  "Create one string item, concerning a Dired BUFFER, for the buffer menu.
 The item looks like:
 *% <buffer-name>
 The `*' appears only if the buffer is marked as modified.
@@ -434,7 +434,7 @@ An item looks like (NAME . BUFFER)."
 
 
 (defun msb-sort-by-directory (item1 item2)
-  "Sort the items ITEM1 and ITEM2 by directory name.  Made for dired.
+  "Sort the items ITEM1 and ITEM2 by directory name.  Made for Dired.
 An item look like (NAME . BUFFER)."
   (string-lessp (with-current-buffer (cdr item1)
                   (msb--dired-directory))
@@ -803,7 +803,7 @@ results in
 (defun msb--mode-menu-cond ()
   (let ((key msb-modes-key))
     (mapcar (lambda (item)
-	      (cl-incf key)
+              (incf key)
 	      (list `( eq major-mode (quote ,(car item)))
 		    key
 		    (concat (cdr item) " (%d)")))
@@ -837,7 +837,7 @@ It takes the form ((TITLE . BUFFER-LIST)...)."
                                               buffer
                                               max-buffer-name-length)
                                      buffer))
-                     and do (cl-incf n)
+                     and do (incf n)
                      until (>= n msb-display-most-recently-used))))
       (cons (if (stringp msb-most-recently-used-title)
 		(format msb-most-recently-used-title
@@ -1025,7 +1025,7 @@ variable `msb-menu-cond'."
 	  (tmp-list nil))
       (while (< count msb-max-menu-items)
 	(push (pop list) tmp-list)
-	(cl-incf count))
+        (incf count))
       (setq tmp-list (nreverse tmp-list))
       (setq sub-name (concat (car (car tmp-list)) "..."))
       (push (nconc (list mcount sub-name
@@ -1065,7 +1065,7 @@ variable `msb-menu-cond'."
 				  (cons (buffer-name (cdr item))
 					(cons (car item) 'msb--select-buffer)))
 				(cdr sub-menu))))
-	   (nconc (list (cl-incf mcount) (car sub-menu)
+           (nconc (list (incf mcount) (car sub-menu)
 			'keymap (car sub-menu))
 		  (msb--split-menus buffers))))))
      raw-menu)))
@@ -1113,10 +1113,8 @@ variable `msb-menu-cond'."
 
 ;; Snarf current bindings of `mouse-buffer-menu' (normally
 ;; C-down-mouse-1).
-(defvar msb-mode-map
-  (let ((map (make-sparse-keymap "Msb")))
-    (define-key map [remap mouse-buffer-menu] #'msb)
-    map))
+(defvar-keymap msb-mode-map
+  "<remap> <mouse-buffer-menu>" #'msb)
 
 ;;;###autoload
 (define-minor-mode msb-mode

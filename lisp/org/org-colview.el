@@ -1,6 +1,6 @@
 ;;; org-colview.el --- Column View in Org            -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2004-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2025 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <carsten.dominik@gmail.com>
 ;; Keywords: outlines, hypermedia, calendar, text
@@ -1662,7 +1662,7 @@ definition."
 	;; Insert affiliated keywords before the table.
 	(when content-lines
 	  (while (string-match-p "\\`[ \t]*#\\+" (car content-lines))
-	    (insert (pop content-lines) "\n")))
+	    (insert (string-trim-left (pop content-lines)) "\n")))
 	(save-excursion
 	  ;; Insert table at point.
 	  (insert
@@ -1675,7 +1675,7 @@ definition."
 	  (let ((case-fold-search t))
 	    (dolist (line content-lines)
 	      (when (string-match-p "\\`[ \t]*#\\+TBLFM:" line)
-		(insert "\n" line)
+		(insert "\n" (string-trim-left line))
 		(unless recalc (setq recalc t))))))
 	(when recalc (org-table-recalculate 'all t))
 	(org-table-align)

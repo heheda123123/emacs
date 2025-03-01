@@ -1,6 +1,6 @@
 ;;; cua-base.el --- emulate CUA key bindings  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Kim F. Storm <storm@cua.dk>
 ;; Keywords: keyboard emulations convenience cua
@@ -39,7 +39,7 @@
 ;;	C-v	-> paste
 ;;
 ;; The tricky part is the handling of the C-x and C-c keys which
-;; are normally used as prefix keys for most of Emacs' built-in
+;; are normally used as prefix keys for most of Emacs's built-in
 ;; commands.  With CUA they still do!!!
 ;;
 ;; Only when the region is currently active (and highlighted since
@@ -133,12 +133,12 @@
 ;; Emacs's normal rectangle support is based on interpreting the region
 ;; between the mark and point as a "virtual rectangle", and using a
 ;; completely separate set of "rectangle commands" [C-x r ...] on the
-;; region to copy, kill, fill a.s.o. the virtual rectangle.
+;; region to copy, kill, fill, and so on the virtual rectangle.
 ;;
 ;; cua-mode's superior rectangle support uses a true visual
 ;; representation of the selected rectangle, i.e. it highlights the
 ;; actual part of the buffer that is currently selected as part of the
-;; rectangle.  Unlike Emacs' traditional rectangle commands, the
+;; rectangle.  Unlike Emacs's traditional rectangle commands, the
 ;; selected rectangle always as straight left and right edges, even
 ;; when those are in the middle of a TAB character or beyond the end
 ;; of the current line.  And it does this without actually modifying
@@ -154,7 +154,7 @@
 ;;
 ;; To start a rectangle, use [C-return] and extend it using the normal
 ;; movement keys (up, down, left, right, home, end, C-home,
-;; C-end). Once the rectangle has the desired size, you can cut or
+;; C-end).  Once the rectangle has the desired size, you can cut or
 ;; copy it using C-x and C-c (or C-w and M-w), and you can
 ;; subsequently insert it - as a rectangle - using C-v (or C-y).  So
 ;; the only new command you need to know to work with cua-mode
@@ -699,10 +699,29 @@ Repeating prefix key when region is active works as a single prefix key."
   (interactive)
   (cua--prefix-override-replay 0))
 
-;; These aliases are so that we can look up the commands and find the
-;; correct keys when generating menus.
-(defalias 'cua-cut-handler #'cua--prefix-override-handler)
-(defalias 'cua-copy-handler #'cua--prefix-override-handler)
+;; These two functions are so that we can look up the commands and find the
+;; correct keys when generating menus.  Also, when cua--prefix-override-handler
+;; is nil, allow C-x C-c to cut/copy immediately without waiting for
+;; cua--prefix-override-timer to expire.
+(declare-function cua-cut-to-global-mark "cua-gmrk")
+(declare-function cua-copy-to-global-mark "cua-gmrk")
+(defun cua--copy-or-cut-handler (&optional cut)
+  (if (or (not (numberp cua-prefix-override-inhibit-delay))
+          (<= cua-prefix-override-inhibit-delay 0))
+      (cond ((and (bound-and-true-p cua--global-mark-active))
+             (funcall (if cut #'cua-cut-to-global-mark
+                        #'cua-copy-to-global-mark)))
+            (t (call-interactively (if cut #'kill-region
+                                     #'copy-region-as-kill))))
+    (cua--prefix-override-handler)))
+
+(defun cua-cut-handler ()
+  (interactive)
+  (cua--copy-or-cut-handler t))
+
+(defun cua-copy-handler ()
+  (interactive)
+  (cua--copy-or-cut-handler))
 
 (defun cua--prefix-repeat-handler ()
   "Repeating prefix key when region is active works as a single prefix key."

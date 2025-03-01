@@ -1,6 +1,6 @@
 ;;; ert-tests.el --- ERT's self-tests  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2007-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2025 Free Software Foundation, Inc.
 
 ;; Author: Christian Ohler <ohler@gnu.org>
 
@@ -617,7 +617,7 @@ This macro is used to test if macroexpansion in `should' works."
   (should (ert--special-operator-p 'if))
   (should-not (ert--special-operator-p 'car))
   (should-not (ert--special-operator-p 'ert--special-operator-p))
-  (let ((b (cl-gensym)))
+  (cl-with-gensyms (b)
     (should-not (ert--special-operator-p b))
     (fset b 'if)
     (should (ert--special-operator-p b))))
@@ -875,6 +875,151 @@ This macro is used to test if macroexpansion in `should' works."
 (ert-deftest ert-test-get-explainer ()
   (should (eq (ert--get-explainer 'string-equal) 'ert--explain-string-equal))
   (should (eq (ert--get-explainer 'string=) 'ert--explain-string-equal)))
+
+(ert-deftest ert--pp-with-indentation-and-newline ()
+  :tags '(:causes-redisplay)
+  (let ((failing-test (make-ert-test
+                       :name 'failing-test
+                       :body (lambda ()
+                               (should (equal '((:one "1" :three "3" :two "2"))
+                                              '((:one "1")))))))
+        (want-body "\
+Selector: <failing-test>
+Passed:  0
+Failed:  1 (1 unexpected)
+Skipped: 0
+Total:   1/1
+
+Started at:   @@TIMESTAMP@@
+Finished.
+Finished at:  @@TIMESTAMP@@
+
+F
+
+F failing-test
+    (ert-test-failed
+     ((should (equal '((:one \"1\" :three \"3\" :two \"2\")) '((:one \"1\"))))
+      :form (equal ((:one \"1\" :three \"3\" :two \"2\")) ((:one \"1\"))) :value
+      nil :explanation
+      (list-elt 0
+                (proper-lists-of-different-length 6 2
+                                                  (:one \"1\" :three \"3\"
+                                                        :two \"2\")
+                                                  (:one \"1\")
+                                                  first-mismatch-at 2))))
+\n\n")
+        (want-msg "Ran 1 tests, 0 results were as expected, 1 unexpected")
+        (buffer-name (generate-new-buffer-name " *ert-test-run-tests*")))
+    (cl-letf* ((ert-debug-on-error nil)
+               (ert--output-buffer-name buffer-name)
+               (messages nil)
+               ((symbol-function 'message)
+                (lambda (format-string &rest args)
+                  (push (apply #'format format-string args) messages)))
+               ((symbol-function 'ert--format-time-iso8601)
+                (lambda (_) "@@TIMESTAMP@@")))
+      (save-window-excursion
+        (unwind-protect
+            (let ((fill-column 70))
+              (ert-run-tests-interactively failing-test)
+              (should (equal (list want-msg) messages))
+              (should (equal (string-replace "\t" "        "
+                                             (with-current-buffer buffer-name
+                                               (buffer-string)))
+                             want-body)))
+          (when noninteractive
+            (kill-buffer buffer-name)))))))
+
+(defun ert--hash-table-to-alist (table)
+  (let ((accu nil))
+    (maphash (lambda (key value)
+               (push (cons key value) accu))
+             table)
+    (nreverse accu)))
+
+(ert-deftest ert-test-test-buffers ()
+  (let (buffer-1
+        buffer-2)
+    (let ((test-1
+           (make-ert-test
+            :name 'test-1
+            :body (lambda ()
+                    (ert-with-test-buffer (:name "foo")
+                      (should (string-match
+                               "[*]Test buffer (ert-test-test-buffers): foo[*]"
+                               (buffer-name)))
+                      (setq buffer-1 (current-buffer))))))
+          (test-2
+           (make-ert-test
+            :name 'test-2
+            :body (lambda ()
+                    (ert-with-test-buffer (:name "bar")
+                      (should (string-match
+                               "[*]Test buffer (ert-test-test-buffers): bar[*]"
+                               (buffer-name)))
+                      (setq buffer-2 (current-buffer))
+                      (ert-fail "fail for test"))))))
+      (let ((ert--test-buffers (make-hash-table :weakness t)))
+        (ert-run-tests `(member ,test-1 ,test-2) #'ignore)
+        (should (equal (ert--hash-table-to-alist ert--test-buffers)
+                       `((,buffer-2 . t))))
+        (should-not (buffer-live-p buffer-1))
+        (should (buffer-live-p buffer-2))))))
+
+(ert-deftest ert-test-with-buffer-selected/current ()
+  (let ((origbuf (current-buffer)))
+    (ert-with-test-buffer ()
+      (let ((buf (current-buffer)))
+        (should (not (eq buf origbuf)))
+        (with-current-buffer origbuf
+          (ert-with-buffer-selected buf
+            (should (eq (current-buffer) buf))))))))
+
+(ert-deftest ert-test-with-buffer-selected/selected ()
+  (ert-with-test-buffer ()
+    (ert-with-buffer-selected (current-buffer)
+      (should (eq (window-buffer) (current-buffer))))))
+
+(ert-deftest ert-test-with-buffer-selected/nil-buffer ()
+  (ert-with-test-buffer ()
+    (let ((buf (current-buffer)))
+      (ert-with-buffer-selected nil
+        (should (eq (window-buffer) buf))))))
+
+(ert-deftest ert-test-with-buffer-selected/modification-hooks ()
+  (ert-with-test-buffer ()
+    (ert-with-buffer-selected (current-buffer)
+      (should (null inhibit-modification-hooks)))))
+
+(ert-deftest ert-test-with-buffer-selected/read-only ()
+  (ert-with-test-buffer ()
+    (ert-with-buffer-selected (current-buffer)
+      (should (null inhibit-read-only))
+      (should (null buffer-read-only)))))
+
+(ert-deftest ert-test-with-buffer-selected/return-value ()
+  (should (equal (ert-with-buffer-selected nil "foo") "foo")))
+
+(ert-deftest ert-test-with-test-buffer-selected/selected ()
+  (ert-with-test-buffer (:selected t)
+    (should (eq (window-buffer) (current-buffer)))))
+
+(ert-deftest ert-test-with-test-buffer-selected/modification-hooks ()
+  (ert-with-test-buffer (:selected t)
+    (should (null inhibit-modification-hooks))))
+
+(ert-deftest ert-test-with-test-buffer-selected/read-only ()
+  (ert-with-test-buffer (:selected t)
+    (should (null inhibit-read-only))
+    (should (null buffer-read-only))))
+
+(ert-deftest ert-test-with-test-buffer-selected/return-value ()
+  (should (equal (ert-with-test-buffer (:selected t) "foo") "foo")))
+
+(ert-deftest ert-test-with-test-buffer-selected/buffer-name ()
+  (should (equal (ert-with-test-buffer (:name "foo") (buffer-name))
+                 (ert-with-test-buffer (:name "foo" :selected t)
+                   (buffer-name)))))
 
 (provide 'ert-tests)
 

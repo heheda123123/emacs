@@ -1,6 +1,6 @@
 ;;; url-cookie.el --- URL cookie support  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1996-1999, 2004-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1996-1999, 2004-2025 Free Software Foundation, Inc.
 
 ;; Keywords: comm, data, processes, hypermedia
 
@@ -112,7 +112,7 @@ i.e. 1970-1-1) are loaded as expiring one year from now instead."
 				  s))))
 		    (key (nth 5 fields))
 		    (val (nth 6 fields)))
-		(cl-incf n)
+                (incf n)
 		;;(message "adding <%s>=<%s> exp=<%s> dom=<%s> path=<%s> sec=%S" key val expires dom path secure)
 		(url-cookie-store key val expires dom path secure)
 		))

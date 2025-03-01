@@ -1,6 +1,6 @@
 ;;; bytecomp.el --- compilation of Lisp code into byte code -*- lexical-binding: t -*-
 
-;; Copyright (C) 1985-1987, 1992, 1994, 1998, 2000-2024 Free Software
+;; Copyright (C) 1985-1987, 1992, 1994, 1998, 2000-2025 Free Software
 ;; Foundation, Inc.
 
 ;; Author: Jamie Zawinski <jwz@lucid.com>
@@ -2051,7 +2051,7 @@ also be compiled."
                         (not (member source (dir-locals--all-files directory)))
                         ;; File is requested to be ignored
                         (not (string-match-p ignore-files-regexp source)))
-                   (progn (cl-incf
+                   (progn (incf
                            (pcase (byte-recompile-file source force arg)
                              ('no-byte-compile skip-count)
                              ('t file-count)
@@ -2132,7 +2132,6 @@ If compilation is needed, this functions returns the result of
   (and file (not (equal file ""))
        (with-temp-buffer
          (insert-file-contents file)
-         (goto-char (point-min))
          (let ((vars nil)
                var)
            (while (ignore-errors (setq var (read (current-buffer))))
@@ -2355,7 +2354,8 @@ See also `emacs-lisp-byte-compile-and-load'."
         (let ((gen-dynvars (getenv "EMACS_GENERATE_DYNVARS")))
           (when (and gen-dynvars (not (equal gen-dynvars ""))
                      byte-compile--seen-defvars)
-            (let ((dynvar-file (concat target-file ".dynvars")))
+            (let ((dynvar-file (concat target-file ".dynvars"))
+                  (print-symbols-bare t))
               (message "Generating %s" dynvar-file)
               (with-temp-buffer
                 (dolist (var (delete-dups byte-compile--seen-defvars))
@@ -2713,7 +2713,7 @@ Call from the source buffer."
       (let ((newdocs (byte-compile--docstring docs kind name)))
         (unless (eq docs newdocs)
           (setq form (byte-compile--list-with-n form 3 newdocs)))))
-    form))
+    (byte-compile-keep-pending form)))
 
 (put 'require 'byte-hunk-handler 'byte-compile-file-form-require)
 (defun byte-compile-file-form-require (form)
@@ -3583,7 +3583,7 @@ This assumes the function has the `important-return-value' property."
          (cl-nsubst 3) (cl-nsubst-if 3) (cl-nsubst-if-not 3)
          (cl-nsubstitute 3) (cl-nsubstitute-if 3) (cl-nsubstitute-if-not 3)
          (cl-nsublis 2)
-         (cl-nunion 1 2) (cl-nintersection 1 2) (cl-nset-difference 1 2)
+         (cl-nunion 1 2) (cl-nintersection 1) (cl-nset-difference 1)
          (cl-nset-exclusive-or 1 2)
          (cl-nreconc 1)
          (cl-sort 1) (cl-stable-sort 1) (cl-merge 2 3)
@@ -3772,7 +3772,7 @@ This assumes the function has the `important-return-value' property."
         ;; Add missing &optional (or &rest) arguments.
         (dotimes (_ (- (/ (1+ fmax2) 2) alen))
           (byte-compile-push-constant nil)))
-       ((zerop (logand fmax2 1))
+       ((evenp fmax2)
         (byte-compile-report-error
          (format "Too many arguments for inlined function %S" form))
         (byte-compile-discard (- alen (/ fmax2 2))))
@@ -3832,7 +3832,7 @@ This assumes the function has the `important-return-value' property."
 (defun byte-compile-free-vars-warn (arg var &optional assignment)
   "Warn if symbol VAR refers to a free variable.
 VAR must not be lexically bound.
-ARG is a position argument, used by byte-compile-warn-x.
+ARG is a position argument, used by `byte-compile-warn-x'.
 If optional argument ASSIGNMENT is non-nil, this is treated as an
 assignment (i.e. `setq')."
   (unless (or (not (byte-compile-warning-enabled-p 'free-vars var))
@@ -4640,13 +4640,12 @@ Return (TAIL VAR TEST CASES), where:
                                       cases))))
       (setq jump-table (make-hash-table
 			:test test
-			:purecopy t
 			:size nvalues)))
     (setq default-tag (byte-compile-make-tag))
     ;; The structure of byte-switch code:
     ;;
     ;; varref var
-    ;; constant #s(hash-table purecopy t data (val1 (TAG1) val2 (TAG2)))
+    ;; constant #s(hash-table data (val1 (TAG1) val2 (TAG2)))
     ;; switch
     ;; goto DEFAULT-TAG
     ;; TAG1
@@ -5276,11 +5275,11 @@ FORM is used to provide location, `bytecomp--cus-function' and
                    (and tl
                         (progn
                           (bytecomp--cus-warn
-                           tl "misplaced %s keyword in `%s' type" (car tl) head)
+                           tl "misplaced %S keyword in `%S' type" (car tl) head)
                           t))))))
          ((memq head '(choice radio))
           (unless tail
-            (bytecomp--cus-warn type "`%s' without any types inside" head))
+            (bytecomp--cus-warn type "`%S' without any types inside" head))
           (let ((clauses tail)
                 (constants nil)
                 (tags nil))
@@ -5288,7 +5287,7 @@ FORM is used to provide location, `bytecomp--cus-function' and
               (let* ((ty (car clauses))
                      (ty-head (car-safe ty)))
                 (when (and (eq ty-head 'other) (cdr clauses))
-                  (bytecomp--cus-warn ty "`other' not last in `%s'" head))
+                  (bytecomp--cus-warn ty "`other' not last in `%S'" head))
                 (when (memq ty-head '(const other))
                   (let ((ty-tail (cdr ty))
                         (val nil))
@@ -5300,13 +5299,13 @@ FORM is used to provide location, `bytecomp--cus-function' and
                       (setq val (car ty-tail)))
                     (when (member val constants)
                       (bytecomp--cus-warn
-                       ty "duplicated value in `%s': `%S'" head val))
+                       ty "duplicated value in `%S': `%S'" head val))
                     (push val constants)))
                 (let ((tag (and (consp ty) (plist-get (cdr ty) :tag))))
                   (when (stringp tag)
                     (when (member tag tags)
                       (bytecomp--cus-warn
-                       ty "duplicated :tag string in `%s': %S" head tag))
+                       ty "duplicated :tag string in `%S': %S" head tag))
                     (push tag tags)))
                 (bytecomp--check-cus-type ty))
               (setq clauses (cdr clauses)))))
@@ -5318,7 +5317,7 @@ FORM is used to provide location, `bytecomp--cus-function' and
             (bytecomp--check-cus-type ty)))
          ((memq head '(list group vector set repeat))
           (unless tail
-            (bytecomp--cus-warn type "`%s' without type specs" head))
+            (bytecomp--cus-warn type "`%S' without type specs" head))
           (dolist (ty tail)
             (bytecomp--check-cus-type ty)))
          ((memq head '(alist plist))
@@ -5334,21 +5333,21 @@ FORM is used to provide location, `bytecomp--cus-function' and
                  (val (car tail)))
             (cond
              ((or (> n 1) (and value-tag tail))
-              (bytecomp--cus-warn type "`%s' with too many values" head))
+              (bytecomp--cus-warn type "`%S' with too many values" head))
              (value-tag
               (setq val (cadr value-tag)))
              ;; ;; This is a useful check but it results in perhaps
              ;; ;; a bit too many complaints.
              ;; ((null tail)
              ;;  (bytecomp--cus-warn
-             ;;   type "`%s' without value is implicitly nil" head))
+             ;;   type "`%S' without value is implicitly nil" head))
              )
             (when (memq (car-safe val) '(quote function))
-              (bytecomp--cus-warn type "`%s' with quoted value: %S" head val))))
+              (bytecomp--cus-warn type "`%S' with quoted value: %S" head val))))
          ((eq head 'quote)
-          (bytecomp--cus-warn type "type should not be quoted: %s" (cadr type)))
+          (bytecomp--cus-warn type "type should not be quoted: %S" (cadr type)))
          ((memq head invalid-types)
-          (bytecomp--cus-warn type "`%s' is not a valid type" head))
+          (bytecomp--cus-warn type "`%S' is not a valid type" head))
          ((or (not (symbolp head)) (keywordp head))
           (bytecomp--cus-warn type "irregular type `%S'" head))
          )))
@@ -5356,10 +5355,63 @@ FORM is used to provide location, `bytecomp--cus-function' and
       (bytecomp--cus-warn type "irregular type `%S'" type))
      ((memq type '( list cons group vector choice radio const other
                     function-item variable-item set repeat restricted-sexp))
-      (bytecomp--cus-warn type "`%s' without arguments" type))
+      (bytecomp--cus-warn type "`%S' without arguments" type))
      ((memq type invalid-types)
-      (bytecomp--cus-warn type "`%s' is not a valid type" type))
+      (bytecomp--cus-warn type "`%S' is not a valid type" type))
      )))
+
+(defun bytecomp--check-cus-face-spec (spec)
+  "Check for mistakes in a `defface' SPEC argument."
+  (when (consp spec)
+    (dolist (sp spec)
+      (let ((display (car-safe sp))
+            (atts (cdr-safe sp)))
+        (cond ((listp display)
+               (dolist (condition display)
+                 (unless (memq (car-safe condition)
+                               '(type class background min-colors supports))
+                   (bytecomp--cus-warn
+                    (list sp spec)
+                    "Bad face display condition `%S'" (car condition)))))
+              ((not (memq display '(t default)))
+               (bytecomp--cus-warn
+                (list sp spec) "Bad face display `%S'" display)))
+        (when (and (consp atts) (null (cdr atts)))
+          (setq atts (car atts)))       ; old (DISPLAY ATTS) syntax
+        (while atts
+          (let ((attr (car atts))
+                (val (cadr atts)))
+            (cond
+             ((not (keywordp attr))
+              (bytecomp--cus-warn
+               (list atts sp spec)
+               "Non-keyword in face attribute list: `%S'" attr))
+             ((null (cdr atts))
+              (bytecomp--cus-warn
+               (list atts sp spec) "Missing face attribute `%s' value" attr))
+             ((memq attr '( :inherit :extend
+                            :family :foundry :width :height :weight :slant
+                            :foreground :distant-foreground :background
+                            :underline :overline :strike-through :box
+                            :inverse-video :stipple :font
+                            ;; FIXME: obsolete keywords, warn about them too?
+                            :bold           ; :bold t   = :weight bold
+                            :italic         ; :italic t = :slant italic
+                            ))
+              (when (eq (car-safe val) 'quote)
+                (bytecomp--cus-warn
+                 (list val atts sp spec)
+                 "Value for face attribute `%s' should not be quoted" attr)))
+             ((eq attr :reverse-video)
+              (bytecomp--cus-warn
+               (list atts sp spec)
+               (concat "Face attribute `:reverse-video' has been removed;"
+                       " use `:inverse-video' instead")))
+             (t
+              (bytecomp--cus-warn
+               (list atts sp spec)
+               "`%s' is not a valid face attribute keyword" attr))))
+          (setq atts (cddr atts)))))))
 
 ;; Unified handler for multiple functions with similar arguments:
 ;; (NAME SOMETHING DOC KEYWORD-ARGS...)
@@ -5394,6 +5446,13 @@ FORM is used to provide location, `bytecomp--cus-function' and
                         (eq (car-safe type-arg) 'quote))
                 (bytecomp--check-cus-type (cadr type-arg)))))))
 
+      (when (eq fun 'custom-declare-face)
+        (let ((face-arg (nth 2 form)))
+          (when (and (eq (car-safe face-arg) 'quote)
+                     (consp (cdr face-arg))
+                     (null (cddr face-arg)))
+            (bytecomp--check-cus-face-spec (nth 1 face-arg)))))
+
       ;; Check :group
       (when (cond
              ((memq fun '(custom-declare-variable custom-declare-face))
@@ -5407,7 +5466,13 @@ FORM is used to provide location, `bytecomp--cus-function' and
       (when (and name
                  byte-compile-current-file  ; only when compiling a whole file
 		 (eq fun 'custom-declare-group))
-	(setq byte-compile-current-group name))))
+        (setq byte-compile-current-group name))
+
+      ;; Check :local
+      (when-let* ((val (and (eq fun 'custom-declare-variable)
+                            (plist-get keyword-args :local)))
+                  (_ (not (member val '(t 'permanent 'permanent-only)))))
+        (bytecomp--cus-warn form ":local keyword does not accept %S" val))))
 
   (byte-compile-normal-call form))
 
@@ -5488,7 +5553,7 @@ OP and OPERAND are as passed to `byte-compile-out'."
 (defun byte-compile-out (op &optional operand)
   "Push the operation onto `byte-compile-output'.
 OP is an opcode, a symbol.  OPERAND is either nil or a number or
-a one-element list of a lisp form."
+a one-element list of a Lisp form."
   (when (and (consp operand) (null (cdr operand)))
     (setq operand (byte-run-strip-symbol-positions operand)))
   (push (cons op operand) byte-compile-output)
@@ -5983,8 +6048,8 @@ and corresponding effects."
             :buffer :host :service :type :family :local :remote :coding
             :nowait :noquery :stop :filter :filter-multibyte :sentinel
             :log :plist :tls-parameters :server :broadcast :dontroute
-            :keepalive :linger :oobinline :priority :reuseaddr :bindtodevice
-            :use-external-socket)
+            :keepalive :linger :oobinline :priority :reuseaddr :nodelay
+            :bindtodevice :use-external-socket)
           '(:name :service))))
 
 (provide 'byte-compile)

@@ -1,6 +1,6 @@
 /* Functions for the NeXT/Open/GNUstep and macOS window system.
 
-Copyright (C) 1989, 1992-1994, 2005-2006, 2008-2024 Free Software
+Copyright (C) 1989, 1992-1994, 2005-2006, 2008-2025 Free Software
 Foundation, Inc.
 
 This file is part of GNU Emacs.
@@ -66,10 +66,6 @@ static Lisp_Object tip_frame;
 /* The X and Y deltas of the last call to `x-show-tip'.  */
 static Lisp_Object tip_dx, tip_dy;
 
-/* The window-system window corresponding to the frame of the
-   currently visible tooltip.  */
-static NSWindow *tip_window;
-
 /* A timer that hides or deletes the currently visible tooltip when it
    fires.  */
 static Lisp_Object tip_timer;
@@ -86,8 +82,6 @@ static Lisp_Object tip_last_parms;
 /* Static variables to handle AppleScript execution.  */
 static Lisp_Object as_script, *as_result;
 static int as_status;
-
-static ptrdiff_t image_cache_refcount;
 
 static struct ns_display_info *ns_display_info_for_name (Lisp_Object);
 
@@ -1137,29 +1131,8 @@ unwind_create_frame (Lisp_Object frame)
   /* If frame is ``official'', nothing to do.  */
   if (NILP (Fmemq (frame, Vframe_list)))
     {
-#if defined GLYPH_DEBUG && defined ENABLE_CHECKING
-      struct ns_display_info *dpyinfo = FRAME_DISPLAY_INFO (f);
-#endif
-
-      /* If the frame's image cache refcount is still the same as our
-	 private shadow variable, it means we are unwinding a frame
-	 for which we didn't yet call init_frame_faces, where the
-	 refcount is incremented.  Therefore, we increment it here, so
-	 that free_frame_faces, called in ns_free_frame_resources
-	 below, will not mistakenly decrement the counter that was not
-	 incremented yet to account for this new frame.  */
-      if (FRAME_IMAGE_CACHE (f) != NULL
-	  && FRAME_IMAGE_CACHE (f)->refcount == image_cache_refcount)
-	FRAME_IMAGE_CACHE (f)->refcount++;
-
       ns_free_frame_resources (f);
       free_glyphs (f);
-
-#if defined GLYPH_DEBUG && defined ENABLE_CHECKING
-      /* Check that reference counts are indeed correct.  */
-      eassert (dpyinfo->terminal->image_cache->refcount == image_cache_refcount);
-#endif
-
       return Qt;
     }
 
@@ -1335,13 +1308,10 @@ DEFUN ("x-create-frame", Fx_create_frame, Sx_create_frame,
   block_input ();
 
 #ifdef NS_IMPL_COCOA
-    mac_register_font_driver (f);
+  mac_register_font_driver (f);
 #else
-    register_font_driver (&nsfont_driver, f);
+  register_font_driver (&nsfont_driver, f);
 #endif
-
-  image_cache_refcount =
-    FRAME_IMAGE_CACHE (f) ? FRAME_IMAGE_CACHE (f)->refcount : 0;
 
   gui_default_parameter (f, parms, Qfont_backend, Qnil,
                          "fontBackend", "FontBackend", RES_TYPE_STRING);
@@ -1654,7 +1624,7 @@ ns_window_is_ancestor (NSWindow *win, NSWindow *candidate)
 
 DEFUN ("ns-frame-list-z-order", Fns_frame_list_z_order,
        Sns_frame_list_z_order, 0, 1, 0,
-       doc: /* Return list of Emacs' frames, in Z (stacking) order.
+       doc: /* Return list of Emacs's frames, in Z (stacking) order.
 If TERMINAL is non-nil and specifies a live frame, return the child
 frames of that frame in Z (stacking) order.
 
@@ -2543,7 +2513,7 @@ DEFUN ("system-move-file-to-trash", Fsystem_move_file_to_trash,
 
   handler = Ffind_file_name_handler (filename, operation);
   if (!NILP (handler))
-    return call2 (handler, operation, filename);
+    return calln (handler, operation, filename);
   else
     {
       NSFileManager *fm = [NSFileManager defaultManager];
@@ -2985,10 +2955,7 @@ unwind_create_tip_frame (Lisp_Object frame)
 
   deleted = unwind_create_frame (frame);
   if (EQ (deleted, Qt))
-    {
-      tip_window = NULL;
-      tip_frame = Qnil;
-    }
+    tip_frame = Qnil;
 }
 
 /* Create a frame for a tooltip on the display described by DPYINFO.
@@ -3044,9 +3011,6 @@ ns_create_tip_frame (struct ns_display_info *dpyinfo, Lisp_Object parms)
   register_font_driver (&nsfont_driver, f);
 #endif
   unblock_input ();
-
-  image_cache_refcount =
-    FRAME_IMAGE_CACHE (f) ? FRAME_IMAGE_CACHE (f)->refcount : 0;
 
   gui_default_parameter (f, parms, Qfont_backend, Qnil,
                          "fontBackend", "FontBackend", RES_TYPE_STRING);
@@ -3173,7 +3137,7 @@ ns_create_tip_frame (struct ns_display_info *dpyinfo, Lisp_Object parms)
   {
     Lisp_Object bg = Fframe_parameter (frame, Qbackground_color);
 
-    call2 (Qface_set_after_frame_default, frame, Qnil);
+    calln (Qface_set_after_frame_default, frame, Qnil);
 
     if (!EQ (bg, Fframe_parameter (frame, Qbackground_color)))
       {
@@ -3212,7 +3176,7 @@ x_hide_tip (bool delete)
 {
   if (!NILP (tip_timer))
     {
-      call1 (Qcancel_timer, tip_timer);
+      calln (Qcancel_timer, tip_timer);
       tip_timer = Qnil;
     }
 
@@ -3363,7 +3327,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 	      tip_f = XFRAME (tip_frame);
 	      if (!NILP (tip_timer))
 		{
-		  call1 (Qcancel_timer, tip_timer);
+		  calln (Qcancel_timer, tip_timer);
 		  tip_timer = Qnil;
 		}
 
@@ -3380,7 +3344,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 	      [nswindow orderFront: NSApp];
 	      [nswindow display];
 
-	      SET_FRAME_VISIBLE (tip_f, 1);
+	      SET_FRAME_VISIBLE (tip_f, true);
 	      unblock_input ();
 
 	      goto start_timer;
@@ -3411,11 +3375,11 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 			}
 		      else
 			tip_last_parms
-			  = call2 (Qassq_delete_all, parm, tip_last_parms);
+			  = calln (Qassq_delete_all, parm, tip_last_parms);
 		    }
 		  else
 		    tip_last_parms
-		      = call2 (Qassq_delete_all, parm, tip_last_parms);
+		      = calln (Qassq_delete_all, parm, tip_last_parms);
 		}
 
 	      /* Now check if every parameter in what is left of
@@ -3563,7 +3527,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
       [nswindow orderFront: NSApp];
       [nswindow display];
 
-      SET_FRAME_VISIBLE (tip_f, YES);
+      SET_FRAME_VISIBLE (tip_f, true);
       FRAME_PIXEL_WIDTH (tip_f) = width;
       FRAME_PIXEL_HEIGHT (tip_f) = height;
       unblock_input ();
@@ -3577,8 +3541,7 @@ DEFUN ("x-show-tip", Fx_show_tip, Sx_show_tip, 1, 6, 0,
 
     start_timer:
       /* Let the tip disappear after timeout seconds.  */
-      tip_timer = call3 (Qrun_at_time, timeout, Qnil,
-			 Qx_hide_tip);
+      tip_timer = calln (Qrun_at_time, timeout, Qnil, Qx_hide_tip);
     }
 
   return unbind_to (count, Qnil);

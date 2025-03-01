@@ -5406,7 +5406,7 @@
 	(syms_of_androidselect): Define it.
 
 	* src/emacs.c (load_pdump): Eschew excessively elaborate dump file
-	location code on on Android.
+	location code on Android.
 
 	* src/pdumper.c (Fdump_emacs_portable): Allow dumping while
 	interactive on Android.
@@ -7261,7 +7261,7 @@ and those made after the Android port was installed.
 ;; coding: utf-8
 ;; End:
 
-  Copyright (C) 2023-2024 Free Software Foundation, Inc.
+  Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
   This file is part of GNU Emacs.
 

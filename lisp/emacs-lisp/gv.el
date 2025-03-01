@@ -1,6 +1,6 @@
 ;;; gv.el --- generalized variables  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2012-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2025 Free Software Foundation, Inc.
 
 ;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: extensions
@@ -182,7 +182,7 @@ If CURRENT-NAME is a string, that is the `use instead' message.
 WHEN should be a string indicating when the variable was first
 made obsolete, for example a date or a release number."
   (put obsolete-name 'byte-obsolete-generalized-variable
-       (purecopy (list current-name when)))
+       (list current-name when))
   obsolete-name)
 
 ;; Additions for `declare'.  We specify the values as named aliases so
@@ -294,7 +294,7 @@ The return value is the last VAL in the list.
 
 \(fn PLACE VAL PLACE VAL ...)"
   (declare (debug (&rest [gv-place form])))
-  (if (/= (logand (length args) 1) 0)
+  (if (oddp (length args))
       (signal 'wrong-number-of-arguments (list 'setf (length args))))
   (if (and args (null (cddr args)))
       (let ((place (pop args))
@@ -315,17 +315,29 @@ The return value is the last VAL in the list.
 ;;       `(if (member ,v ,getter) nil
 ;;          ,(funcall setter `(cons ,v ,getter))))))
 
-;; (defmacro gv-inc! (place &optional val)
-;;   "Increment PLACE by VAL (default to 1)."
-;;   (declare (debug (gv-place &optional form)))
-;;   (gv-letplace (getter setter) place
-;;     (funcall setter `(+ ,getter ,(or val 1)))))
+;;;###autoload
+(defmacro incf (place &optional delta)
+  "Increment PLACE by DELTA (default to 1).
 
-;; (defmacro gv-dec! (place &optional val)
-;;   "Decrement PLACE by VAL (default to 1)."
-;;   (declare (debug (gv-place &optional form)))
-;;   (gv-letplace (getter setter) place
-;;     (funcall setter `(- ,getter ,(or val 1)))))
+The DELTA is first added to PLACE, and then stored in PLACE.
+Return the incremented value of PLACE.
+
+See also `decf'."
+  (declare (debug (gv-place &optional form)))
+  (gv-letplace (getter setter) place
+    (funcall setter `(+ ,getter ,(or delta 1)))))
+
+;;;###autoload
+(defmacro decf (place &optional delta)
+  "Decrement PLACE by DELTA (default to 1).
+
+The DELTA is first subtracted from PLACE, and then stored in PLACE.
+Return the decremented value of PLACE.
+
+See also `incf'."
+  (declare (debug (gv-place &optional form)))
+  (gv-letplace (getter setter) place
+    (funcall setter `(- ,getter ,(or delta 1)))))
 
 ;; For Edebug, the idea is to let Edebug instrument gv-places just like it does
 ;; for normal expressions, and then give it a gv-expander to DTRT.
@@ -394,7 +406,7 @@ The return value is the last VAL in the list.
 (gv-define-simple-setter process-buffer set-process-buffer)
 (gv-define-simple-setter process-filter set-process-filter)
 (gv-define-simple-setter process-sentinel set-process-sentinel)
-(gv-define-simple-setter process-get process-put)
+(gv-define-simple-setter process-get process-put 'fix)
 (gv-define-simple-setter window-parameter set-window-parameter)
 (gv-define-setter window-buffer (v &optional w)
   (macroexp-let2 nil v v

@@ -1,6 +1,6 @@
 ;;; eudc.el --- Emacs Unified Directory Client  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1998-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2025 Free Software Foundation, Inc.
 
 ;; Author: Oscar Figueiredo <oscar@cpe.fr>
 ;;         Pavel Janík <Pavel@Janik.cz>
@@ -23,25 +23,27 @@
 ;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
-;;    This package provides a common interface to query directory servers using
-;;    different protocols such as LDAP, CCSO PH/QI or BBDB.  Queries can be
-;;    made through an interactive form or inline.  Inline query strings in
-;;    buffers are expanded with appropriately formatted query results
-;;    (especially used to expand email addresses in message buffers).  EUDC
-;;    also interfaces with the BBDB package to let you register query results
-;;    into your own BBDB database.
 
-;;; Usage:
-;;    EUDC comes with an extensive documentation, please refer to it.
+;; This package provides a common interface to query directory servers using
+;; different protocols such as LDAP, CCSO PH/QI or BBDB.  Queries can be
+;; made through an interactive form or inline.  Inline query strings in
+;; buffers are expanded with appropriately formatted query results
+;; (especially used to expand email addresses in message buffers).  EUDC
+;; also interfaces with the BBDB package to let you register query results
+;; into your own BBDB database.
 ;;
-;;    The main entry points of EUDC are:
-;;      `eudc-query-form': Query a directory server from a query form
-;;      `eudc-expand-inline': Query a directory server for the e-mail address
-;;                            of the name before cursor and insert it in the
-;;                            buffer
-;;      `eudc-get-phone': Get a phone number from a directory server
-;;      `eudc-get-email': Get an e-mail address from a directory server
-;;      `eudc-customize': Customize various aspects of EUDC
+;; Usage:
+;;
+;; EUDC comes with extensive documentation, please refer to it.
+;;
+;; The main entry points of EUDC are:
+;;   `eudc-query-form': Query a directory server from a query form
+;;   `eudc-expand-inline': Query a directory server for the e-mail address
+;;                         of the name before cursor and insert it in the
+;;                         buffer
+;;   `eudc-get-phone': Get a phone number from a directory server
+;;   `eudc-get-email': Get an e-mail address from a directory server
+;;   `eudc-customize': Customize various aspects of EUDC
 
 ;;; Code:
 
@@ -382,7 +384,7 @@ The translation is done according to
 
 When REVERSE is nil or omitted, the attribute names are
 translated from EUDC generic names to protocol-specific
-names. When REVERSE is non-nil, the translation is from
+names.  When REVERSE is non-nil, the translation is from
 protocol-specific names back to EUDC generic names."
   (if eudc-protocol-attributes-translation-alist
       (mapcar (lambda (attribute)
@@ -406,7 +408,7 @@ The translation is done according to
 
 When REVERSE is nil or omitted, the attribute names are
 translated from EUDC generic names to protocol-specific
-names. When REVERSE is non-nil, the translation is from
+names.  When REVERSE is non-nil, the translation is from
 protocol-specific names back to EUDC generic names."
   (if eudc-protocol-attributes-translation-alist
       (let (trans)
@@ -918,7 +920,7 @@ non-nil, collect results from all servers."
              (if valid-comment-given comment nil)))
         (progn
           (error "Error: the function referenced by \
-`eudc-inline-expansion-format' is expected to return a list.")
+`eudc-inline-expansion-format' is expected to return a list")
           nil))))
 
    ;; fallback behavior (nil function, or non-matching type)
@@ -1110,7 +1112,7 @@ queries the server for the existing fields and displays a corresponding form."
     (eudc-install-menu)
     (if eudc-ignore-options-file
 	(warn "Not saving bookmark due to `eudc-ignore-options-file'\
- customization. Instead, customize `eudc-server-hotlist' to include %s:%s"
+ customization.  Instead, customize `eudc-server-hotlist' to include %s:%s"
 	      protocol server)
       (eudc-save-options))))
 
@@ -1317,25 +1319,25 @@ This does nothing except loading eudc by autoload side-effect."
   (defvar eudc-tools-menu
     (let ((map (make-sparse-keymap "Directory Servers")))
       (define-key map [phone]
-	`(menu-item ,(purecopy "Get Phone") eudc-get-phone
-		    :help ,(purecopy "Get the phone field of name from the directory server")))
+        '(menu-item "Get Phone" eudc-get-phone
+                    :help "Get the phone field of name from the directory server"))
       (define-key map [email]
-	`(menu-item ,(purecopy "Get Email") eudc-get-email
-		    :help ,(purecopy "Get the email field of NAME from the directory server")))
+        '(menu-item "Get Email" eudc-get-email
+                    :help "Get the email field of NAME from the directory server"))
       (define-key map [separator-eudc-email] menu-bar-separator)
       (define-key map [expand-inline]
-	`(menu-item ,(purecopy "Expand Inline Query") eudc-expand-inline
-		    :help ,(purecopy "Query the directory server, and expand the query string before point")))
+        '(menu-item "Expand Inline Query" eudc-expand-inline
+                    :help "Query the directory server, and expand the query string before point"))
       (define-key map [query]
-	`(menu-item ,(purecopy "Query with Form") eudc-query-form
-		    :help ,(purecopy "Display a form to query the directory server")))
+        '(menu-item "Query with Form" eudc-query-form
+                    :help "Display a form to query the directory server"))
       (define-key map [separator-eudc-query] menu-bar-separator)
       (define-key map [new]
-	`(menu-item ,(purecopy "New Server") eudc-set-server
-		    :help ,(purecopy "Set the directory server to SERVER using PROTOCOL")))
+        '(menu-item "New Server" eudc-set-server
+                    :help "Set the directory server to SERVER using PROTOCOL"))
       (define-key map [load]
-	`(menu-item ,(purecopy "Load Hotlist of Servers") eudc-load-eudc
-		    :help ,(purecopy "Load the Emacs Unified Directory Client")))
+        '(menu-item "Load Hotlist of Servers" eudc-load-eudc
+                    :help "Load the Emacs Unified Directory Client"))
       map))
   (fset 'eudc-tools-menu (symbol-value 'eudc-tools-menu)))
 

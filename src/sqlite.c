@@ -1,6 +1,6 @@
 /* Support for accessing SQLite databases.
 
-Copyright (C) 2021-2024 Free Software Foundation, Inc.
+Copyright (C) 2021-2025 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -700,7 +700,7 @@ MODULE should be the name of an SQlite module's file, a
 shared library in the system-dependent format and having a
 system-dependent file-name extension.
 
-Only modules on Emacs' list of allowed modules can be loaded.  */)
+Only modules on Emacs's list of allowed modules can be loaded.  */)
   (Lisp_Object db, Lisp_Object module)
 {
   check_sqlite (db, false);
@@ -722,6 +722,7 @@ Only modules on Emacs' list of allowed modules can be loaded.  */)
     "rtree",
     "sha1",
     "uuid",
+    "vec0",
     "vector0",
     "vfslog",
     "vss0",
@@ -898,15 +899,15 @@ syms_of_sqlite (void)
 
   DEFSYM (Qsqlite_error, "sqlite-error");
   Fput (Qsqlite_error, Qerror_conditions,
-	Fpurecopy (list2 (Qsqlite_error, Qerror)));
+	list2 (Qsqlite_error, Qerror));
   Fput (Qsqlite_error, Qerror_message,
-	build_pure_c_string ("Database error"));
+	build_string ("Database error"));
 
   DEFSYM (Qsqlite_locked_error, "sqlite-locked-error");
   Fput (Qsqlite_locked_error, Qerror_conditions,
-	Fpurecopy (list3 (Qsqlite_locked_error, Qsqlite_error, Qerror)));
+	list3 (Qsqlite_locked_error, Qsqlite_error, Qerror));
   Fput (Qsqlite_locked_error, Qerror_message,
-	build_pure_c_string ("Database locked"));
+	build_string ("Database locked"));
 
   DEFSYM (Qsqlitep, "sqlitep");
   DEFSYM (Qfalse, "false");

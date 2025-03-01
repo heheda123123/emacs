@@ -1,6 +1,6 @@
 ;;; replace-tests.el --- tests for replace.el.  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2010-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2025 Free Software Foundation, Inc.
 
 ;; Author: Nicolas Richard <youngfrog@members.fsf.org>
 ;; Author: Juri Linkov <juri@jurta.org>
@@ -528,8 +528,7 @@ then replace 3 matches of FROM with TO, and undo the last replacement.
 
 Return the last evalled form in BODY."
   (declare (indent 5) (debug (stringp stringp stringp form characterp body)))
-  (let ((text (gensym "text"))
-        (count (gensym "count")))
+  (cl-with-gensyms (text count)
     `(let* ((,text ,input)
             (,count 0)
             (inhibit-message t))
@@ -541,13 +540,13 @@ Return the last evalled form in BODY."
          ;; bind `read-string' as well.
          (cl-letf (((symbol-function 'read-event)
                     (lambda (&rest _args)
-                      (cl-incf ,count)
+                      (incf ,count)
                       (pcase ,count ; Build the clauses from CHAR-NUMS
                         ,@(append
                            (delq nil
                                  (mapcar
                                   (lambda (chr)
-                                    (when-let (it (alist-get chr char-nums))
+                                    (when-let* ((it (alist-get chr char-nums)))
                                       (if (cdr it)
                                           `(,(cons 'or it) ,chr)
                                         `(,(car it) ,chr))))

@@ -1,6 +1,6 @@
 ;;; ansi-osc.el --- Support for OSC escape sequences      -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2022-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2022-2025 Free Software Foundation, Inc.
 
 ;; Author: Augusto Stoffel <arstoffel@gmail.com>
 ;;         Matthias Meulien <orontee@gmail.com>
@@ -84,7 +84,7 @@ located."
                          pos1 (match-beginning 0))))
               (setq ansi-osc--marker nil)
               (delete-region pos0 (point))
-              (when-let ((fun (cdr (assoc-string code ansi-osc-handlers))))
+              (when-let* ((fun (cdr (assoc-string code ansi-osc-handlers))))
                 (funcall fun code text)))
           (put-text-property pos0 end 'invisible t)
           (setq ansi-osc--marker (copy-marker pos0)))))))
@@ -116,15 +116,16 @@ such as with the following command:
 
     printf \"\\e]7;file://%s%s\\e\\\\\" \"$HOSTNAME\" \"$PWD\"
 
+A remote `default-directory' is maintained.
+
 This functionality serves as an alternative to `dirtrack-mode'
 and `shell-dirtrack-mode'."
-  (let ((url (url-generic-parse-url text)))
-    (when (and (string= (url-type url) "file")
-               (or (null (url-host url))
-                   ;; Use `downcase' to match `url-generic-parse-url' behavior
-                   (string= (url-host url) (downcase (system-name)))))
-      (ignore-errors
-        (cd-absolute (url-unhex-string (url-filename url)))))))
+  (when-let* ((url (url-generic-parse-url text))
+              ((string= (url-type url) "file")))
+    (ignore-errors
+      (cd-absolute
+       (concat (file-remote-p default-directory)
+               (url-unhex-string (url-filename url)))))))
 
 ;; Hyperlink handling (OSC 8)
 
@@ -137,7 +138,7 @@ and `shell-dirtrack-mode'."
 (define-button-type 'ansi-osc-hyperlink
   'keymap ansi-osc-hyperlink-map
   'help-echo (lambda (_ buffer pos)
-               (when-let ((url (get-text-property pos 'browse-url-data buffer)))
+               (when-let* ((url (get-text-property pos 'browse-url-data buffer)))
                  (format "mouse-2, C-c RET: Open %s" url))))
 
 (defvar-local ansi-osc-hyperlink--state nil)

@@ -1,6 +1,6 @@
 ;;; let-alist.el --- Easily let-bind values of an assoc-list by their names -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2014-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2014-2025 Free Software Foundation, Inc.
 
 ;; Author: Artur Malabarba <emacs@endlessparentheses.com>
 ;; Package-Requires: ((emacs "24.1"))
@@ -36,22 +36,23 @@
 ;; symbol inside body is let-bound to their cdrs in the alist.  Dotted
 ;; symbol is any symbol starting with a `.'.  Only those present in
 ;; the body are let-bound and this search is done at compile time.
+;; A number will result in a list index.
 ;;
 ;; For instance, the following code
 ;;
 ;;   (let-alist alist
-;;     (if (and .title .body)
+;;     (if (and .title.0 .body)
 ;;         .body
 ;;       .site
 ;;       .site.contents))
 ;;
 ;; essentially expands to
 ;;
-;;   (let ((.title (cdr (assq 'title alist)))
+;;   (let ((.title.0 (nth 0 (cdr (assq 'title alist))))
 ;;         (.body  (cdr (assq 'body alist)))
 ;;         (.site  (cdr (assq 'site alist)))
 ;;         (.site.contents (cdr (assq 'contents (cdr (assq 'site alist))))))
-;;     (if (and .title .body)
+;;     (if (and .title.0 .body)
 ;;         .body
 ;;       .site
 ;;       .site.contents))
@@ -93,14 +94,17 @@ symbol, and each cdr is the same symbol without the `.'."
     (if (string-match "\\`\\." name)
         clean
       (let-alist--list-to-sexp
-       (mapcar #'intern (nreverse (split-string name "\\.")))
+       (mapcar #'read (nreverse (split-string name "\\.")))
        variable))))
 
 (defun let-alist--list-to-sexp (list var)
   "Turn symbols LIST into recursive calls to `cdr' `assq' on VAR."
-  `(cdr (assq ',(car list)
-              ,(if (cdr list) (let-alist--list-to-sexp (cdr list) var)
-                 var))))
+  (let ((sym (car list))
+        (rest (if (cdr list) (let-alist--list-to-sexp (cdr list) var)
+                 var)))
+    (cond
+     ((numberp sym) `(nth ,sym ,rest))
+     (t `(cdr (assq ',sym ,rest))))))
 
 (defun let-alist--remove-dot (symbol)
   "Return SYMBOL, sans an initial dot."
@@ -116,22 +120,23 @@ symbol, and each cdr is the same symbol without the `.'."
   "Let-bind dotted symbols to their cdrs in ALIST and execute BODY.
 Dotted symbol is any symbol starting with a `.'.  Only those present
 in BODY are let-bound and this search is done at compile time.
+A number will result in a list index.
 
 For instance, the following code
 
   (let-alist alist
-    (if (and .title .body)
+    (if (and .title.0 .body)
         .body
       .site
       .site.contents))
 
 essentially expands to
 
-  (let ((.title (cdr (assq \\='title alist)))
+  (let ((.title (nth 0 (cdr (assq \\='title alist))))
         (.body  (cdr (assq \\='body alist)))
         (.site  (cdr (assq \\='site alist)))
         (.site.contents (cdr (assq \\='contents (cdr (assq \\='site alist))))))
-    (if (and .title .body)
+    (if (and .title.0 .body)
         .body
       .site
       .site.contents))
@@ -140,6 +145,12 @@ If you nest `let-alist' invocations, the inner one can't access
 the variables of the outer one.  You can, however, access alists
 inside the original alist by using dots inside the symbol, as
 displayed in the example above.
+
+To refer to a non-`let-alist' variable starting with a dot in BODY, use
+two dots instead of one.  For example, in the following form `..foo'
+refers to the variable `.foo' bound outside of the `let-alist':
+
+    (let ((.foo 42)) (let-alist \\='((foo . nil)) ..foo))
 
 Note that there is no way to differentiate the case where a key
 is missing from when it is present, but its value is nil.  Thus,

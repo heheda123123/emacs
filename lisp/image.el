@@ -1,6 +1,6 @@
 ;;; image.el --- image API  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1998-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2025 Free Software Foundation, Inc.
 
 ;; Maintainer: emacs-devel@gnu.org
 ;; Keywords: multimedia
@@ -157,6 +157,11 @@ program (like ImageMagick \"convert\", GraphicsMagick \"gm\"
 or \"ffmpeg\") is installed."
   :type 'boolean
   :version "27.1")
+
+(defcustom image-recompute-map-p t
+  "Recompute image map when scaling, rotating, or flipping an image."
+  :type 'boolean
+  :version "30.1")
 
 (define-error 'unknown-image-type "Unknown image type")
 
@@ -608,6 +613,7 @@ properties specific to certain image types."
   (declare (gv-setter image--set-property))
   (plist-get (cdr image) property))
 
+(defvar image-scaling-factor)
 (defun image-compute-scaling-factor (&optional scaling)
   "Compute the scaling factor based on SCALING.
 If a number, use that.  If it's `auto', compute the factor.
@@ -638,7 +644,9 @@ IMAGE must be an image created with `create-image' or `defimage'.
 IMAGE is displayed by putting an overlay into the current buffer with a
 `before-string' STRING that has a `display' property whose value is the
 image.  STRING defaults to \"x\" if it's nil or omitted.
-The overlay created by this function has the `put-image' property set to t.
+Upon success, this function returns the created overlay with its
+`put-image' property set to t.
+
 POS may be an integer or marker.
 AREA is where to display the image.  AREA nil or omitted means
 display it in the text area, a value of `left-margin' means
@@ -813,7 +821,7 @@ string containing the actual image data.  If the property `:type TYPE'
 is omitted or nil, try to determine the image type from its first few
 bytes of image data.  If that doesn't work, and the property `:file
 FILE' provide a file name, use its file extension as indication of the
-image type. If `:type TYPE' is provided, it must match the actual type
+image type.  If `:type TYPE' is provided, it must match the actual type
 determined for FILE or DATA by `create-image'.
 
 The function returns the image specification for the first specification
@@ -1172,7 +1180,7 @@ has no effect."
     KDC MIFF MNG MRW MSL MSVG MTV NEF ORF OTB PBM PCD PCDS PCL
     PCT PCX PDB PEF PGM PICT PIX PJPEG PNG PNG24 PNG32 PNG8 PNM
     PPM PSD PTIF PWP RAF RAS RBG RGB RGBA RGBO RLA RLE SCR SCT
-    SFW SGI SR2 SRF SUN SVG SVGZ TGA TIFF TIFF64 TILE TIM TTF
+    SFW SGI SIX SR2 SRF SUN SVG SVGZ TGA TIFF TIFF64 TILE TIM TTF
     UYVY VDA VICAR VID VIFF VST WBMP WPG X3F XBM XC XCF XPM XV
     XWD YCbCr YCbCrA YUV)
   "List of ImageMagick types to treat as images.
@@ -1414,11 +1422,6 @@ is recomputed to fit the newly transformed image."
 
 ;;; Map transformation
 
-(defcustom image-recompute-map-p t
-  "Recompute image map when scaling, rotating, or flipping an image."
-  :type 'boolean
-  :version "30.1")
-
 (defsubst image--compute-rotation (image)
   "Return the current rotation of IMAGE, or 0 if no rotation.
 Also return nil if rotation is not a multiples of 90 degrees (0, 90,
@@ -1432,7 +1435,7 @@ Also return nil if rotation is not a multiples of 90 degrees (0, 90,
 Return a copy of :original-map transformed based on IMAGE's :scale,
 :rotation, and :flip.  When IMAGE's :original-map is nil, return nil.
 When :rotation is not a multiple of 90, return copy of :original-map."
-  (when-let ((map (image-property image :original-map)))
+  (when-let* ((map (image-property image :original-map)))
     (setq map (copy-tree map t))
     (let* ((size (image-size image t))
            ;; The image can be scaled for many reasons (:scale,
@@ -1467,7 +1470,7 @@ When :rotation is not a multiple of 90, return copy of :original-map."
   "Return original map for IMAGE.
 If IMAGE lacks :map property, return nil.
 When there is no transformation, return copy of :map."
-  (when-let ((original-map (image-property image :map)))
+  (when-let* ((original-map (image-property image :map)))
     (setq original-map (copy-tree original-map t))
     (let* ((size (image-size image t))
            ;; The image can be scaled for many reasons (:scale,

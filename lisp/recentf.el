@@ -1,6 +1,6 @@
 ;;; recentf.el --- keep track of recently opened files  -*- lexical-binding: t -*-
 
-;; Copyright (C) 1999-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1999-2025 Free Software Foundation, Inc.
 
 ;; Author: David Ponce <david@dponce.com>
 ;; Created: July 19 1999
@@ -73,13 +73,14 @@
 You should define the options of your own filters in this group."
   :group 'recentf)
 
-(defcustom recentf-max-saved-items 20
+(defcustom recentf-max-saved-items 25
   "Maximum number of items of the recent list that will be saved.
 A nil value means to save the whole list.
 See the command `recentf-save-list'."
   :group 'recentf
-  :type '(choice (integer :tag "Entries" :value 1)
-		 (const :tag "No Limit" nil)))
+  :type '(choice (natnum :tag "Entries")
+		 (const :tag "No Limit" nil))
+  :version "31.1")
 
 (defcustom recentf-save-file (locate-user-emacs-file "recentf" ".recentf")
   "File to save the recent list into."
@@ -96,9 +97,10 @@ See the command `recentf-save-list'."
 
 (defcustom recentf-save-file-modes #o600
   "Mode bits of recentf save file, as an integer, or nil.
-If non-nil, after writing `recentf-save-file', set its mode bits to
-this value.  By default give R/W access only to the user who owns that
-file.  See also the function `set-file-modes'."
+If non-nil, after writing `recentf-save-file', set its mode bits to this
+value.  This is decimal, not octal.  The default is 384 (0600 in octal),
+which gives R/W access only to the user who owns that file.  See also
+the function `set-file-modes'."
   :group 'recentf
   :type '(choice (const :tag "Don't change" nil)
           integer))
@@ -319,6 +321,14 @@ If non-nil, `recentf-open-files' will show labels for keys that can be
 used as shortcuts to open the Nth file."
   :group 'recentf
   :type 'boolean)
+
+(defcustom recentf-show-messages t
+  "Whether to show verbose messages about low-level recentf actions.
+nil means to not show messages related to the recentf machinery.
+t means show messages that were printed by default on Emacs <= 31.1."
+  :group 'recentf
+  :type 'boolean
+  :version "31.1")
 
 ;;; Utilities
 ;;
@@ -523,9 +533,9 @@ See also the command `recentf-open-most-recent-file'."
 
 (defvar recentf-menu-items-for-commands
   (list
-   ["Cleanup list"
+   ["Clean up list"
     recentf-cleanup
-    :help "Remove duplicates, and obsoletes files from the recent list"
+    :help "Remove duplicates, and obsolete files from the recent list"
     :active t]
    ["Edit list..."
     recentf-edit-list
@@ -1329,8 +1339,12 @@ Write data into the file specified by `recentf-save-file'."
         (insert "\n\n;; Local Variables:\n"
                 (format ";; coding: %s\n" recentf-save-file-coding-system)
                 ";; End:\n")
-        (write-region (point-min) (point-max)
-                      (expand-file-name recentf-save-file))
+        (write-region (point-min)
+                      (point-max)
+                      (expand-file-name recentf-save-file) nil
+                      (unless (or (called-interactively-p 'interactive)
+                                 recentf-show-messages)
+                        'quiet))
         (when recentf-save-file-modes
           (set-file-modes recentf-save-file recentf-save-file-modes))
         nil)

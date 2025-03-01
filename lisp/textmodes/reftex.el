@@ -1,6 +1,6 @@
 ;;; reftex.el --- minor mode for doing \label, \ref, \cite, \index in LaTeX  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1997-2000, 2003-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1997-2025 Free Software Foundation, Inc.
 
 ;; Author: Carsten Dominik <dominik@science.uva.nl>
 ;; Maintainer: auctex-devel@gnu.org
@@ -273,12 +273,11 @@ on the menu bar.
 (defvar reftex-multifile-index 0)
 
 ;; Variable holding the symbol with the label list of the document.
-(defvar reftex-docstruct-symbol nil)
-(make-variable-buffer-local 'reftex-docstruct-symbol)
+(defvar-local reftex-docstruct-symbol nil)
 
 (defun reftex-next-multifile-index ()
   ;; Return the next free index for multifile symbols.
-  (cl-incf reftex-multifile-index))
+  (incf reftex-multifile-index))
 
 (defun reftex-tie-multifile-symbols ()
   "Tie the buffer-local symbols to globals connected with the master file.
@@ -938,7 +937,7 @@ This enforces rescanning the buffer on next use."
                          (not (member (aref fmt i) '(?%))))
                (setq word (concat word "\\|" (regexp-quote
                                               (substring fmt 0 (1+ i)))))
-               (cl-incf i))
+               (incf i))
              (cons (concat word "\\)\\=") typekey))
            (nreverse reftex-words-to-typekey-alist)))
 
@@ -991,7 +990,7 @@ This enforces rescanning the buffer on next use."
            (mapconcat
             (lambda(x)
               (format "[%c] %-20.20s%s" (car x) (nth 1 x)
-                      (if (= 0 (mod (cl-incf i) 3)) "\n" "")))
+                      (if (= 0 (mod (incf i) 3)) "\n" "")))
             reftex-key-to-index-macro-alist "")))
 
     ;; Make the full list of section levels
@@ -1085,7 +1084,7 @@ This enforces rescanning the buffer on next use."
               (args (substring macro (match-beginning 0)))
               opt-list nlabel (cnt 0))
           (while (string-match "\\`[[{]\\(\\*\\)?[]}]" args)
-            (cl-incf cnt)
+            (incf cnt)
             (when (eq ?\[ (string-to-char args))
               (push cnt opt-list))
             (when (and (match-end 1)
@@ -1150,7 +1149,7 @@ This enforces rescanning the buffer on next use."
 
 (defun reftex-silence-toc-markers (list n)
   ;; Set all toc markers in the first N entries in list to nil
-  (while (and list (> (cl-decf n) -1))
+  (while (and list (> (decf n) -1))
     (and (eq (car (car list)) 'toc)
          (markerp (nth 4 (car list)))
          (set-marker (nth 4 (car list)) nil))
@@ -1281,7 +1280,7 @@ Valid actions are: readable, restore, read, kill, write."
                   "SELECT EXTERNAL DOCUMENT\n------------------------\n"
                   (mapconcat
                    (lambda (x)
-                     (format fmt (cl-incf n) (or (car x) "")
+                     (format fmt (incf n) (or (car x) "")
                              (abbreviate-file-name (cdr x))))
                    xr-alist ""))
                  nil t))
@@ -2036,8 +2035,8 @@ IGNORE-WORDS List of words which should be removed from the string."
           ;; of font-lock)
           (rename-buffer newname t)
           ;; Good: we have the indirection functions
-          (set (make-local-variable 'font-lock-fontify-region-function)
-               #'reftex-select-font-lock-fontify-region)
+          (setq-local font-lock-fontify-region-function
+                      #'reftex-select-font-lock-fontify-region)
           (let ((major-mode 'latex-mode))
             (font-lock-mode 1)))
       (rename-buffer oldname))))
@@ -2116,8 +2115,7 @@ IGNORE-WORDS List of words which should be removed from the string."
 
 ;; Define a menu for the menu bar if Emacs is running under X
 
-(defvar reftex-isearch-minor-mode nil)
-(make-variable-buffer-local 'reftex-isearch-minor-mode)
+(defvar-local reftex-isearch-minor-mode nil)
 
 (easy-menu-define reftex-mode-menu reftex-mode-map
  "Menu used in RefTeX mode."

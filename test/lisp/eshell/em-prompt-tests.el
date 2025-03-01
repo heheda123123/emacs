@@ -1,6 +1,6 @@
 ;;; em-prompt-tests.el --- em-prompt test suite  -*- lexical-binding:t -*-
 
-;; Copyright (C) 2023-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2023-2025 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -26,11 +26,10 @@
 (require 'ert)
 (require 'eshell)
 (require 'em-prompt)
+(require 'ert-x)
 
 (require 'eshell-tests-helpers
-         (expand-file-name "eshell-tests-helpers"
-                           (file-name-directory (or load-file-name
-                                                    default-directory))))
+         (ert-resource-file "eshell-tests-helpers"))
 
 (defmacro em-prompt-test--with-multiline (&rest body)
   "Execute BODY with a multiline Eshell prompt."
@@ -38,6 +37,9 @@
      ,@body))
 
 ;;; Tests:
+
+
+;; Prompt output
 
 (ert-deftest em-prompt-test/field-properties ()
   "Check that field properties are properly set on Eshell output/prompts."
@@ -54,8 +56,8 @@
                'read-only t
                'field 'prompt
                'font-lock-face 'eshell-prompt
-               'front-sticky '(read-only field font-lock-face)
-               'rear-nonsticky '(read-only field font-lock-face))))
+               'front-sticky '(read-only font-lock-face field)
+               'rear-nonsticky '(read-only font-lock-face field))))
      (should (equal last-input "echo hello\n"))
      (should (equal-including-properties
               last-output
@@ -85,6 +87,33 @@ This tests the case when `eshell-highlight-prompt' is nil."
                 (apply #'propertize "hello\n"
                        eshell-command-output-properties)))))))
 
+(ert-deftest em-prompt-test/field-properties/merge-stickiness ()
+  "Check that stickiness properties are properly merged on Eshell prompts."
+  (let ((eshell-prompt-function
+         (lambda ()
+           (concat (propertize (eshell/pwd) 'front-sticky '(front))
+                   (propertize "$ " 'rear-nonsticky '(rear))))))
+    (with-temp-eshell
+     (eshell-insert-command "echo hello")
+     (let ((last-prompt (field-string (1- eshell-last-input-start))))
+       (should (equal-including-properties
+                last-prompt
+                (concat
+                 (propertize
+                  (directory-file-name default-directory)
+                  'read-only t
+                  'field 'prompt
+                  'font-lock-face 'eshell-prompt
+                  'front-sticky '(front read-only font-lock-face field)
+                  'rear-nonsticky '(read-only font-lock-face field))
+                 (propertize
+                  "$ "
+                  'read-only t
+                  'field 'prompt
+                  'font-lock-face 'eshell-prompt
+                  'front-sticky '(read-only font-lock-face field)
+                  'rear-nonsticky '(rear read-only font-lock-face field)))))))))
+
 (ert-deftest em-prompt-test/after-failure ()
   "Check that current prompt shows the exit code of the last failed command."
   (with-temp-eshell
@@ -101,8 +130,11 @@ This tests the case when `eshell-highlight-prompt' is nil."
                'read-only t
                'field 'prompt
                'font-lock-face 'eshell-prompt
-               'front-sticky '(read-only field font-lock-face)
-               'rear-nonsticky '(read-only field font-lock-face)))))))
+               'front-sticky '(read-only font-lock-face field)
+               'rear-nonsticky '(read-only font-lock-face field)))))))
+
+
+;; Prompt navigation
 
 (defun em-prompt-test/next-previous-prompt-1 ()
   "Helper for checking forward/backward navigation of old prompts."
@@ -150,10 +182,51 @@ This tests the case when `eshell-highlight-prompt' is nil."
   "Check that navigating forward/backward through old prompts works correctly."
   (em-prompt-test/next-previous-prompt-1))
 
-(ert-deftest em-prompt-test/next-previous-prompt-multiline ()
+(ert-deftest em-prompt-test/next-previous-prompt/multiline ()
   "Check old prompt forward/backward navigation for multiline prompts."
   (em-prompt-test--with-multiline
    (em-prompt-test/next-previous-prompt-1)))
+
+(defun em-prompt-test/forward-backward-paragraph-1 ()
+  "Helper for checking forward/backward navigation by paragraphs."
+  (with-temp-eshell
+    (cl-flet ((at-prompt-for-command-p (command)
+                (and (equal (point) (field-beginning))
+                     (equal (get-text-property (point) 'field) 'prompt)
+                     (save-excursion
+                       (goto-char (field-end))
+                       (equal (field-string) command)))))
+      (eshell-insert-command "echo 'high five'")
+      (eshell-insert-command "echo 'up high\n\ndown low'")
+      (eshell-insert-command "echo 'too slow'")
+      (insert "echo goodby")            ; A partially-entered command.
+      (ert-info ("Go back to the last prompt")
+        (eshell-backward-paragraph)
+        (should (at-prompt-for-command-p "echo goodby")))
+      (ert-info ("Go back to the paragraph break")
+        (eshell-backward-paragraph 2)
+        (should (looking-at "\ndown low\n")))
+      (ert-info ("Go forward to the third prompt")
+        (eshell-forward-paragraph)
+        (should (at-prompt-for-command-p "echo 'too slow'\n")))
+      (ert-info ("Go backward to before the first prompt")
+        (eshell-backward-paragraph 5)
+        (should (looking-back "Welcome to the Emacs shell\n")))
+      (ert-info ("Go backward to the beginning of the buffer")
+        (eshell-backward-paragraph)
+        (should (bobp)))
+      (ert-info ("Go forward to the second prompt")
+        (eshell-forward-paragraph 3)
+        (should (at-prompt-for-command-p "echo 'up high\n\ndown low'\n"))))))
+
+(ert-deftest em-prompt-test/forward-backward-paragraph ()
+  "Check that navigating forward/backward through paragraphs works correctly."
+  (em-prompt-test/forward-backward-paragraph-1))
+
+(ert-deftest em-prompt-test/forward-backward-paragraph/multiline ()
+  "Check paragraph forward/backward navigation for multiline prompts."
+  (em-prompt-test--with-multiline
+   (em-prompt-test/forward-backward-paragraph-1)))
 
 (defun em-prompt-test/forward-backward-matching-input-1 ()
   "Helper for checking forward/backward navigation via regexps."

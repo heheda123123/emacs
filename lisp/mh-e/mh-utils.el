@@ -1,6 +1,6 @@
 ;;; mh-utils.el --- MH-E general utilities  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 1993, 1995, 1997, 2000-2024 Free Software Foundation,
+;; Copyright (C) 1993, 1995, 1997, 2000-2025 Free Software Foundation,
 ;; Inc.
 
 ;; Author: Bill Wohler <wohler@newt.com>
@@ -578,10 +578,10 @@ This function is a testable helper of `mh-sub-folders-actual'."
                                       (line-beginning-position) t)))
         (when (integerp has-pos)
           (while (equal (char-after has-pos) ? )
-            (cl-decf has-pos))
-          (cl-incf has-pos)
+            (decf has-pos))
+          (incf has-pos)
           (while (equal (char-after start-pos) ? )
-            (cl-incf start-pos))
+            (incf start-pos))
           (let* ((name (buffer-substring start-pos has-pos))
                  (first-char (aref name 0))
                  (second-char (and (length> name 1) (aref name 1)))
@@ -603,7 +603,7 @@ This function is a testable helper of `mh-sub-folders-actual'."
       (let ((folder-name-len (length (format "%s/" (substring folder 1)))))
         (when (equal "+/" folder)
           ;; folder "+/" includes a trailing slash
-          (cl-decf folder-name-len))
+          (decf folder-name-len))
         (setq results (mapcar (lambda (f)
                                 (cons (substring (car f) folder-name-len)
                                       (cdr f)))

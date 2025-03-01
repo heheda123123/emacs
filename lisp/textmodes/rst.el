@@ -1,6 +1,6 @@
 ;;; rst.el --- Mode for viewing and editing reStructuredText-documents  -*- lexical-binding: t -*-
 
-;; Copyright (C) 2003-2024 Free Software Foundation, Inc.
+;; Copyright (C) 2003-2025 Free Software Foundation, Inc.
 
 ;; Maintainer: Stefan Merten <stefan at merten-home dot de>
 ;; Author: Stefan Merten <stefan at merten-home dot de>,
@@ -56,7 +56,7 @@
 ;; There are a number of convenient key bindings provided by rst-mode.  For the
 ;; bindings, try C-c C-h when in rst-mode.  There are also many variables that
 ;; can be customized, look for defcustom in this file or look for the "rst"
-;; customization group contained in the "wp" group.
+;; customization group contained in the "text" group.
 ;;
 ;; If you use the table-of-contents feature, you may want to add a hook to
 ;; update the TOC automatically every time you adjust a section title::
@@ -102,7 +102,6 @@
 
 ;; FIXME: Embed complicated `defconst's in `eval-when-compile'.
 
-;; Common Lisp stuff
 (require 'cl-lib)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1324,11 +1323,9 @@ The hook for `text-mode' is run before this one."
 ;; Pull in variable definitions silencing byte-compiler.
 (require 'newcomment)
 
-(defvar electric-indent-inhibit)
-
 ;; Use rst-mode for *.rst and *.rest files.  Many ReStructured-Text files
 ;; use *.txt, but this is too generic to be set as a default.
-;;;###autoload (add-to-list 'auto-mode-alist (purecopy '("\\.re?st\\'" . rst-mode)))
+;;;###autoload (add-to-list 'auto-mode-alist '("\\.re?st\\'" . rst-mode))
 ;;;###autoload
 (define-derived-mode rst-mode text-mode "ReST"
   "Major mode for editing reStructuredText documents.
@@ -2202,7 +2199,7 @@ Hierarchy is displayed in a temporary buffer."
 	  (rst-update-section hdr)
 	  (goto-char (point-max))
 	  (insert "\n")
-	  (cl-incf level))))))
+          (incf level))))))
 
 (define-obsolete-function-alias 'rst-display-adornments-hierarchy
   #'rst-display-hdr-hierarchy "29.1")
@@ -2755,7 +2752,7 @@ See `rst-toc-insert-tree' for STYLE, DEPTH and TGT-STN.  See
 	    (or (rst-toc-insert-stn child buf style depth indent
 				    (concat numbering (format num-fmt count))
 				    keymap tgt-stn) fnd))
-      (cl-incf count))))
+      (incf count))))
 
 ;; FIXME refactoring: Use `rst-Stn-buffer' instead of `buf'.
 (defun rst-toc-insert-stn (stn buf style depth indent numbering keymap tgt-stn)
@@ -3469,7 +3466,7 @@ Otherwise return nil."
 	     (t ; Non-empty line in indented block.
 	      (when (or broken in-sub in-super)
 		(setq in-first t)
-		(cl-incf count))
+                (incf count))
 	      (setq in-sub nil)
 	      (setq in-super nil)))
 	    (save-excursion
@@ -3497,7 +3494,7 @@ do all lines instead of just paragraphs."
         (in-sub
          (insert indent))
         ((or in-first all)
-         (let ((tag (format "%d. " (cl-incf enum))))
+         (let ((tag (format "%d. " (incf enum))))
            (setq indent (make-string (length tag) ? ))
            (insert tag)))
         (t
@@ -3549,7 +3546,7 @@ Renumber as necessary.  Region is from BEG to END."
 	   (goto-char marker) nil)
 	  (looking-at (rst-re 'itmany-beg-1))
 	  (replace-match (format "%d." count) nil nil nil 1)
-	  (cl-incf count))))))
+          (incf count))))))
 
 (defun rst-line-block-region (beg end &optional with-empty)
   "Add line block prefixes for a region.
@@ -4438,7 +4435,7 @@ column is used (fill-column vs. end of previous/next line)."
 
 
 
-;; LocalWords:  docutils http sourceforge rst html wp svn svnroot txt reST regex
+;; LocalWords:  docutils http sourceforge rst html svn svnroot txt reST regex
 ;; LocalWords:  regexes alist seq alt grp keymap abbrev overline overlines toc
 ;; LocalWords:  XML PNT propertized init referenceable
 

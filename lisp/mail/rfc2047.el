@@ -1,6 +1,6 @@
 ;;; rfc2047.el --- functions for encoding and decoding rfc2047 messages  -*- lexical-binding:t -*-
 
-;; Copyright (C) 1998-2024 Free Software Foundation, Inc.
+;; Copyright (C) 1998-2025 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 ;;	MORIOKA Tomohiko <morioka@jaist.ac.jp>
@@ -157,7 +157,7 @@ This is either `base64' or `quoted-printable'."
       (goto-char (point-min))
       (skip-chars-forward "\x20-\x7f\r\n\t" limit)
       (while (< (point) limit)
-	(cl-incf n8bit)
+        (incf n8bit)
 	(forward-char 1)
 	(skip-chars-forward "\x20-\x7f\r\n\t" limit))
       (if (or (< (* 6 n8bit) (- limit (point-min)))
@@ -1076,7 +1076,7 @@ other than `\"' and `\\' in quoted strings."
 		(while (search-forward "\"" end t)
 		  (when (prog2
 			    (backward-char)
-			    (zerop (% (skip-chars-backward "\\\\") 2))
+			    (evenp (skip-chars-backward "\\\\"))
 			  (goto-char (match-beginning 0)))
 		    (insert "\\"))
 		  (forward-char))
