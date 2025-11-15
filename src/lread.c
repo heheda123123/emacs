@@ -37,6 +37,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "character.h"
 #include "buffer.h"
 #include "charset.h"
+#include "coding.h"
 #include <epaths.h>
 #include "commands.h"
 #include "keyboard.h"
@@ -236,6 +237,10 @@ static struct saved_string saved_strings[2];
    check for recursive loads.  */
 
 static Lisp_Object Vloads_in_progress;
+static Lisp_Object load_cache_entries;
+static Lisp_Object load_cache_path;
+static bool load_cache_file_loaded;
+static bool load_cache_dirty;
 
 static void readevalloop (Lisp_Object, struct infile *, Lisp_Object, bool,
                           Lisp_Object,
@@ -959,6 +964,284 @@ load_warn_unescaped_character_literals (Lisp_Object file)
     }
 }
 
+static Lisp_Object
+load_cache_file_path (void)
+{
+  Lisp_Object directory_symbol = intern_c_string ("user-emacs-directory");
+
+  if (NILP (Fboundp (directory_symbol)))
+    return Qnil;
+
+  Lisp_Object dir = Fsymbol_value (directory_symbol);
+  if (NILP (dir) || !STRINGP (dir))
+    return Qnil;
+
+  return Fexpand_file_name (build_string (".load-cache"), dir);
+}
+
+static Lisp_Object
+load_cache_parse_from_string (Lisp_Object contents)
+{
+  Lisp_Object parsed = Fread_from_string (contents, Qnil, Qnil);
+  return XCAR (parsed);
+}
+
+static Lisp_Object
+load_cache_parse_error (Lisp_Object data)
+{
+  return Qnil;
+}
+
+static Lisp_Object
+load_cache_read_entries (Lisp_Object cache_file)
+{
+  Lisp_Object encoded = ENCODE_FILE (cache_file);
+  int fd = emacs_open (SSDATA (encoded), O_RDONLY | O_BINARY, 0);
+  if (fd < 0)
+    return Qnil;
+
+  struct stat st;
+  if (sys_fstat (fd, &st) != 0 || S_ISDIR (st.st_mode) || st.st_size <= 0)
+    {
+      emacs_close (fd);
+      return Qnil;
+    }
+
+  if (st.st_size > PTRDIFF_MAX)
+    {
+      emacs_close (fd);
+      return Qnil;
+    }
+
+  ptrdiff_t size = st.st_size;
+  char *buffer = xmalloc (size);
+  ptrdiff_t offset = 0;
+
+  while (offset < size)
+    {
+      ssize_t nread = emacs_read (fd, buffer + offset, size - offset);
+      if (nread < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  xfree (buffer);
+	  emacs_close (fd);
+	  return Qnil;
+	}
+      if (nread == 0)
+	break;
+      offset += nread;
+    }
+
+  emacs_close (fd);
+
+  if (offset != size)
+    {
+      xfree (buffer);
+      return Qnil;
+    }
+
+  Lisp_Object contents = make_unibyte_string (buffer, offset);
+  xfree (buffer);
+
+  Lisp_Object parsed
+    = internal_condition_case_1 (load_cache_parse_from_string, contents,
+				 Qt, load_cache_parse_error);
+
+  return parsed;
+}
+
+static void
+load_cache_maybe_load (void)
+{
+  if (load_cache_file_loaded || load_cache_dirty)
+    return;
+
+  Lisp_Object path = load_cache_file_path ();
+  if (NILP (path))
+    return;
+
+  load_cache_path = path;
+  Lisp_Object entries = load_cache_read_entries (path);
+  load_cache_entries = NILP (entries) ? Qnil : entries;
+  load_cache_file_loaded = true;
+  load_cache_dirty = false;
+}
+
+static Lisp_Object
+load_cache_lookup_entry (Lisp_Object entries, Lisp_Object key)
+{
+  Lisp_Object tail = entries;
+  FOR_EACH_TAIL_SAFE (tail)
+    {
+      Lisp_Object cell = XCAR (tail);
+      if (CONSP (cell) && !NILP (Fequal (XCAR (cell), key)))
+	return XCDR (cell);
+    }
+
+  return Qnil;
+}
+
+static Lisp_Object
+load_cache_remove_entry (Lisp_Object entries, Lisp_Object key, bool *changed)
+{
+  Lisp_Object keep = Qnil;
+  bool removed = false;
+  Lisp_Object tail = entries;
+
+  FOR_EACH_TAIL_SAFE (tail)
+    {
+      Lisp_Object cell = XCAR (tail);
+      if (CONSP (cell) && !NILP (Fequal (XCAR (cell), key)))
+	removed = true;
+      else
+	keep = Fcons (cell, keep);
+    }
+
+  if (!removed)
+    return entries;
+
+  *changed = true;
+  return Fnreverse (keep);
+}
+
+static Lisp_Object
+load_cache_set_entry (Lisp_Object entries, Lisp_Object key,
+		      Lisp_Object value, bool *changed)
+{
+  Lisp_Object keep = Qnil;
+  bool replaced = false;
+  bool local_change = false;
+  Lisp_Object tail = entries;
+
+  FOR_EACH_TAIL_SAFE (tail)
+    {
+      Lisp_Object cell = XCAR (tail);
+      if (CONSP (cell) && !NILP (Fequal (XCAR (cell), key)))
+	{
+	  replaced = true;
+	  if (!NILP (Fequal (XCDR (cell), value)))
+	    keep = Fcons (cell, keep);
+	  else
+	    {
+	      keep = Fcons (Fcons (key, value), keep);
+	      local_change = true;
+	    }
+	}
+      else
+	keep = Fcons (cell, keep);
+    }
+
+  if (!replaced)
+    {
+      keep = Fcons (Fcons (key, value), keep);
+      local_change = true;
+    }
+
+  if (local_change)
+    *changed = true;
+
+  return Fnreverse (keep);
+}
+
+static bool
+load_cache_try_open (Lisp_Object cached, Lisp_Object *found, lread_fd *fd)
+{
+  if (!STRINGP (cached))
+    return false;
+
+  Lisp_Object handler = Ffind_file_name_handler (cached, Qload);
+  if (!NILP (handler))
+    {
+#if !defined USE_ANDROID_ASSETS
+      *fd = -2;
+#else
+      fd->asset = NULL;
+      fd->fd = -2;
+#endif
+      *found = cached;
+      return true;
+    }
+
+  Lisp_Object encoded = ENCODE_FILE (cached);
+  int local_fd = emacs_open (SSDATA (encoded), O_RDONLY | O_BINARY, 0);
+  if (local_fd < 0)
+    return false;
+
+  struct stat st;
+  if (sys_fstat (local_fd, &st) != 0 || S_ISDIR (st.st_mode))
+    {
+      emacs_close (local_fd);
+      return false;
+    }
+
+#if !defined USE_ANDROID_ASSETS
+  *fd = local_fd;
+#else
+  fd->asset = NULL;
+  fd->fd = local_fd;
+#endif
+  *found = cached;
+  return true;
+}
+
+static void
+load_cache_write_entries (Lisp_Object cache_file, Lisp_Object entries)
+{
+  Lisp_Object printed = Fprin1_to_string (entries, Qnil, Qnil);
+  printed = concat2 (printed, build_string ("\n"));
+  Lisp_Object encoded_text = ENCODE_UTF_8 (printed);
+  Lisp_Object encoded_path = ENCODE_FILE (cache_file);
+
+  int fd = emacs_open (SSDATA (encoded_path),
+		       O_WRONLY | O_CREAT | O_TRUNC | O_BINARY, 0666);
+  if (fd < 0)
+    return;
+
+  ptrdiff_t total = SBYTES (encoded_text);
+  ptrdiff_t written = 0;
+  char *data = SSDATA (encoded_text);
+
+  while (written < total)
+    {
+      ssize_t count = emacs_write (fd, data + written, total - written);
+      if (count < 0)
+	{
+	  if (errno == EINTR)
+	    continue;
+	  break;
+	}
+      written += count;
+    }
+
+  emacs_close (fd);
+}
+
+DEFUN ("load-write-cache-file", Fload_write_cache_file, Sload_write_cache_file,
+       0, 0, 0,
+       doc: /* Write the in-memory `load' cache to `.load-cache'.
+Return non-nil if the cache was written.  */)
+  (void)
+{
+  if (!load_cache_dirty)
+    return Qnil;
+
+  load_cache_maybe_load ();
+  if (NILP (load_cache_path))
+    {
+      Lisp_Object path = load_cache_file_path ();
+      if (!NILP (path))
+	load_cache_path = path;
+    }
+
+  if (NILP (load_cache_path))
+    return Qnil;
+
+  load_cache_write_entries (load_cache_path, load_cache_entries);
+  load_cache_dirty = false;
+  return Qt;
+}
+
 DEFUN ("get-load-suffixes", Fget_load_suffixes, Sget_load_suffixes, 0, 0, 0,
        doc: /* Return the suffixes that `load' should try if a suffix is \
 required.
@@ -1132,6 +1415,7 @@ Return t if the file exists and loads successfully.  */)
   int version;
 
   CHECK_STRING (file);
+  load_cache_maybe_load ();
 
   /* If file name is magic, call the handler.  */
   handler = Ffind_file_name_handler (file, Qload);
@@ -1170,10 +1454,23 @@ Return t if the file exists and loads successfully.  */)
     }
   else
     {
-      Lisp_Object suffixes;
+      Lisp_Object suffixes = Qnil;
       found = Qnil;
+      bool used_cache = false;
+      Lisp_Object cached_target = Qnil;
 
-      if (! NILP (must_suffix))
+      if (!NILP (load_cache_entries))
+	{
+	  cached_target = load_cache_lookup_entry (load_cache_entries, file);
+	  if (!NILP (cached_target))
+	    used_cache = load_cache_try_open (cached_target, &found, &fd);
+	  if (!used_cache && !NILP (cached_target))
+	    load_cache_entries
+	      = load_cache_remove_entry (load_cache_entries, file,
+					 &load_cache_dirty);
+	}
+
+      if (!used_cache && ! NILP (must_suffix))
 	{
 	  /* Don't insist on adding a suffix if FILE already ends with one.  */
 	  if (suffix_p (file, ".el")
@@ -1195,32 +1492,36 @@ Return t if the file exists and loads successfully.  */)
 	    must_suffix = Qnil;
 	}
 
-      if (!NILP (nosuffix))
-	suffixes = Qnil;
-      else
+      if (!used_cache)
 	{
-	  suffixes = Fget_load_suffixes ();
-	  if (NILP (must_suffix))
-	    suffixes = CALLN (Fappend, suffixes, Vload_file_rep_suffixes);
-	}
+	  if (NILP (nosuffix))
+	    {
+	      suffixes = Fget_load_suffixes ();
+	      if (NILP (must_suffix))
+		suffixes = CALLN (Fappend, suffixes, Vload_file_rep_suffixes);
+	    }
+	  else
+	    suffixes = Qnil;
 
-      Lisp_Object load_path = Vload_path;
-      if (FUNCTIONP (Vload_path_filter_function))
-	load_path = calln (Vload_path_filter_function, load_path, file, suffixes);
+	  Lisp_Object load_path = Vload_path;
+	  if (FUNCTIONP (Vload_path_filter_function))
+	    load_path = calln (Vload_path_filter_function, load_path, file,
+			       suffixes);
 
 #if !defined USE_ANDROID_ASSETS
-      fd = openp (load_path, file, suffixes, &found, Qnil,
-		  load_prefer_newer, no_native, NULL);
+	  fd = openp (load_path, file, suffixes, &found, Qnil,
+		      load_prefer_newer, no_native, NULL);
 #else
-      asset = NULL;
-      rc = openp (load_path, file, suffixes, &found, Qnil,
-		  load_prefer_newer, no_native, &asset);
-      fd.fd = rc;
-      fd.asset = asset;
+	  asset = NULL;
+	  rc = openp (load_path, file, suffixes, &found, Qnil,
+		      load_prefer_newer, no_native, &asset);
+	  fd.fd = rc;
+	  fd.asset = asset;
 
-      /* fd.asset will be non-NULL if this is actually an asset
-	 file.  */
+	  /* fd.asset will be non-NULL if this is actually an asset
+	     file.  */
 #endif
+	}
     }
 
   if (lread_fd_cmp (-1))
@@ -1564,6 +1865,11 @@ Return t if the file exists and loads successfully.  */)
       else /* The typical case; compiled file newer than source file.  */
 	message_with_string ("Loading %s...done", file, 1);
     }
+
+  if (STRINGP (found))
+    load_cache_entries
+      = load_cache_set_entry (load_cache_entries, file, found,
+			      &load_cache_dirty);
 
   return Qt;
 }
@@ -5570,6 +5876,7 @@ syms_of_lread (void)
   defsubr (&Sunintern);
   defsubr (&Sget_load_suffixes);
   defsubr (&Sload);
+  defsubr (&Sload_write_cache_file);
   defsubr (&Seval_buffer);
   defsubr (&Seval_region);
   defsubr (&Smapatoms);
@@ -5898,6 +6205,12 @@ will use instead of `load-path' to look for the file to load.  */);
 
   Vloads_in_progress = Qnil;
   staticpro (&Vloads_in_progress);
+  load_cache_entries = Qnil;
+  load_cache_path = Qnil;
+  load_cache_file_loaded = false;
+  load_cache_dirty = false;
+  staticpro (&load_cache_entries);
+  staticpro (&load_cache_path);
 
   DEFSYM (Qhash_table, "hash-table");
   DEFSYM (Qdata, "data");
